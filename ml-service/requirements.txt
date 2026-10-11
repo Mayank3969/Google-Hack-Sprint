@@ -2,3 +2,5 @@ mediapipe==0.10.35
 opencv-python
 numpy
 scikit-learn
+fastapi
+uvicorn
