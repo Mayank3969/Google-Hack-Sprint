@@ -1,4 +1,4 @@
-"""Save raw (frames, 520, 3) two-hand plus full-face landmarks as NumPy .npy.
+"""Save raw (frames, 110, 3) two-hand plus compact-face landmarks as NumPy .npy.
 
 From ml-service, run either:
     python scripts/01_extract_landmarks.py clip.mp4 --model models/hand_landmarker.task
@@ -77,7 +77,14 @@ def main(argv: list[str] | None = None) -> int:
         array = extract_landmarks(args.video, model_path=args.model, face_model_path=args.face_model)
         _save_array(output, array, args.video, args.model, args.face_model, args.overwrite)
         metadata = output.with_suffix(".json")
-        metadata.write_text(json.dumps({"feature_shape": [520, 3], "hand_slots": ["left", "right"], "face_points": 478}, indent=2) + "\n", encoding="utf-8")
+        metadata.write_text(json.dumps({
+            "feature_shape": [110, 3],
+            "hand_slots": ["left", "right"],
+            "hand_points_per_slot": 21,
+            "face_points": 68,
+            "face_source_points": 478,
+            "face_feature_version": "compact-v1",
+        }, indent=2) + "\n", encoding="utf-8")
     except Exception as exc:
         print(f"M2 failed: {exc}", file=sys.stderr)
         return 1

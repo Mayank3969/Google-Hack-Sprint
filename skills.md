@@ -51,15 +51,15 @@ phase starts.
 
 ### R.2 Phase overview
 
-| Phase | Window | Outcome | Main Google tools | Exit gate |
-|---|---|---|---|---|
-| 0. Foundations | before any module work (~½ day) | contract signed off, cloud project ready, tracker live | Cloud Console, Cloud Storage, Sheets, Billing budgets | Section 2.1 preflight ticked; `contracts.md` reviewed by mobile dev |
-| 1. Data + model | Day 1 | labeled dataset and a ≥80% held-out classifier behind `predict()` | MediaPipe, Colab (optional), Cloud Storage | `ML-M1…M5` pass; accuracy evidence recorded |
-| 2. Services live | Day 1 evening → Day 2 morning | both services deployed and verified from outside the dev machine | Cloud Run, Cloud Build, Artifact Registry, Secret Manager, Gemini, Speech-to-Text, Text-to-Speech, Firestore | `ML-M6…M7`, `BE-M1…M9`, section 6.1 checklist |
-| 3. Mobile integration + demo | Day 2 | physical-device vertical slice | MediaPipe Tasks (mobile), Android Studio / Flutter | Section 8 final integration test, all 7 checks |
-| 4. Hardening | week 1 after demo | no public secrets, durable audio, least privilege, cost guard-rails | Cloud Storage signed URLs, IAM, Vertex AI, Cloud Logging/Monitoring, Cloud Build tests | Hardening checklist (R.3, Phase 4) |
-| 5. Model quality | weeks 2–5 | larger vocabulary, multiple signers, measurable accuracy | Colab, TensorFlow/Keras, TFLite, Cloud Storage | ≥85% on a held-out *signer* the model never trained on |
-| 6. Product | weeks 5–10 | realtime conversation, auth, analytics, pilot | Firebase Auth, App Check, Firestore realtime, Crashlytics, App Distribution | Pilot with real signers/interpreters completed, findings logged |
+| Phase                        | Window                           | Outcome                                                             | Main Google tools                                                                                            | Exit gate                                                            |
+| ---------------------------- | -------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| 0. Foundations               | before any module work (~½ day) | contract signed off, cloud project ready, tracker live              | Cloud Console, Cloud Storage, Sheets, Billing budgets                                                        | Section 2.1 preflight ticked;`contracts.md` reviewed by mobile dev |
+| 1. Data + model              | Day 1                            | labeled dataset and a ≥80% held-out classifier behind`predict()` | MediaPipe, Colab (optional), Cloud Storage                                                                   | `ML-M1…M5` pass; accuracy evidence recorded                       |
+| 2. Services live             | Day 1 evening → Day 2 morning   | both services deployed and verified from outside the dev machine    | Cloud Run, Cloud Build, Artifact Registry, Secret Manager, Gemini, Speech-to-Text, Text-to-Speech, Firestore | `ML-M6…M7`, `BE-M1…M9`, section 6.1 checklist                  |
+| 3. Mobile integration + demo | Day 2                            | physical-device vertical slice                                      | MediaPipe Tasks (mobile), Android Studio / Flutter                                                           | Section 8 final integration test, all 7 checks                       |
+| 4. Hardening                 | week 1 after demo                | no public secrets, durable audio, least privilege, cost guard-rails | Cloud Storage signed URLs, IAM, Vertex AI, Cloud Logging/Monitoring, Cloud Build tests                       | Hardening checklist (R.3, Phase 4)                                   |
+| 5. Model quality             | weeks 2–5                       | larger vocabulary, multiple signers, measurable accuracy            | Colab, TensorFlow/Keras, TFLite, Cloud Storage                                                               | ≥85% on a held-out*signer* the model never trained on             |
+| 6. Product                   | weeks 5–10                      | realtime conversation, auth, analytics, pilot                       | Firebase Auth, App Check, Firestore realtime, Crashlytics, App Distribution                                  | Pilot with real signers/interpreters completed, findings logged      |
 
 **Critical path:** contract → dataset → classifier → `/predict` → deploy →
 mobile smoke test. Backend M1–M8 are off the critical path and can use mock mode
@@ -109,6 +109,7 @@ until Phase 2, but the *deploy* of both services is on it.
    mobile and backend tests will reuse it.
 
 **Parallel work during Phase 1**
+
 - Backend: `BE-M1`, then `BE-M2`/`BE-M3`/`BE-M5` clients with the mock path on.
 - Mobile: role selection, permission screens, and a **landmark-capture spike**
   that produces a `(frames, 21, 3)` array logged to the console. Compare it
@@ -155,36 +156,36 @@ machine.
 #### Phase 4 — Hardening (week 1 after the demo)
 
 - [ ] **Audio to Cloud Storage.** Write MP3s to `gs://<bucket>/audio/` and return
-      a short-lived **signed URL** (or serve through the backend with a lifecycle
-      rule deleting objects after ~1 day). The `audio_url` contract does not
-      change. This fixes the multi-instance problem where `/tmp` audio written on
-      one Cloud Run instance 404s on another.
+  a short-lived **signed URL** (or serve through the backend with a lifecycle
+  rule deleting objects after ~1 day). The `audio_url` contract does not
+  change. This fixes the multi-instance problem where `/tmp` audio written on
+  one Cloud Run instance 404s on another.
 - [ ] **Least-privilege IAM.** Replace the broad **Editor** role on the default
-      compute service account with a dedicated service account per service, with
-      only what each needs (for example Firestore user, Secret Manager accessor,
-      Storage object user for the audio prefix). Confirm Speech-to-Text and
-      Text-to-Speech still work after the change.
+  compute service account with a dedicated service account per service, with
+  only what each needs (for example Firestore user, Secret Manager accessor,
+  Storage object user for the audio prefix). Confirm Speech-to-Text and
+  Text-to-Speech still work after the change.
 - [ ] **Remove the Gemini API key.** Move `gemini_client.py` to the Vertex AI
-      Gemini client using Application Default Credentials (same function
-      signature). Delete the AI Studio key and its secret.
+  Gemini client using Application Default Credentials (same function
+  signature). Delete the AI Studio key and its secret.
 - [ ] **Verify model and SDK names.** Section 5 M2 pins a specific Gemini model
-      and the `google-generativeai` package. Before this phase, check Google's
-      current model list and SDK guidance, then set `GEMINI_MODEL` and update the
-      client accordingly. Never hard-code the model name again.
+  and the `google-generativeai` package. Before this phase, check Google's
+  current model list and SDK guidance, then set `GEMINI_MODEL` and update the
+  client accordingly. Never hard-code the model name again.
 - [ ] **Abuse controls.** Request size limits (already specified), per-IP/room
-      rate limiting at the app layer or in front of Cloud Run, and Cloud Run max
-      instances. Keep the billing alerts from Phase 0.
+  rate limiting at the app layer or in front of Cloud Run, and Cloud Run max
+  instances. Keep the billing alerts from Phase 0.
 - [ ] **CI that tests before deploying.** Add a `cloudbuild.yaml` per service that
-      runs `pytest` (mock mode) before building the image; use **Artifact
-      Registry** for images; keep the path-filtered triggers.
+  runs `pytest` (mock mode) before building the image; use **Artifact
+  Registry** for images; keep the path-filtered triggers.
 - [ ] **Observability.** Cloud Logging with request ID, endpoint, and duration
-      (never keys, audio, frames, or full conversation text); a **Cloud
-      Monitoring uptime check** on both `/health` URLs with an alert; **Error
-      Reporting** enabled; log-based metric for 5xx rate.
+  (never keys, audio, frames, or full conversation text); a **Cloud
+  Monitoring uptime check** on both `/health` URLs with an alert; **Error
+  Reporting** enabled; log-based metric for 5xx rate.
 - [ ] **Firestore rules and retention.** Decide how long messages live; add a TTL
-      policy on `rooms` documents; make room IDs longer than 8 characters.
+  policy on `rooms` documents; make room IDs longer than 8 characters.
 - [ ] **Privacy basics.** Written note on what is stored (messages, no video, no
-      audio), retention, and consent for training recordings.
+  audio), retention, and consent for training recordings.
 
 **Gate:** none of the "stop and resolve" conditions in section 0.3 are present;
 service accounts are least-privilege; no API key exists anywhere.
@@ -428,8 +429,8 @@ audio playback, or landmark extraction work.
    - **Fast path (recommended for a 2-day build):** go to `aistudio.google.com` → Get API Key → copy it. You'll store this as `GEMINI_API_KEY` later. This uses the plain Gemini API, not Vertex AI.
    - **Stronger-for-judges path (more setup):** use Gemini through the Vertex AI SDK instead, authenticated via your Cloud project's service account (no separate API key). Only do this if Module backend-M2 finishes early and you have spare time — it's the same prompt logic, different client library (`vertexai` instead of `google.generativeai`).
 6. You do **not** need to manually create a service account key file for Cloud Run — Cloud Run services run under a default service account automatically. You just need to grant that account the right permissions:
-    - Go to **IAM & Admin → IAM**, find the service account named `<PROJECT_NUMBER>-compute@developer.gserviceaccount.com`.
-    - Click the pencil icon → **Add Another Role** → add **Editor** (fastest for a hackathon; tighten later if this becomes a real product). This single role covers Firestore, Speech, and Text-to-Speech access.
+   - Go to **IAM & Admin → IAM**, find the service account named `<PROJECT_NUMBER>-compute@developer.gserviceaccount.com`.
+   - Click the pencil icon → **Add Another Role** → add **Editor** (fastest for a hackathon; tighten later if this becomes a real product). This single role covers Firestore, Speech, and Text-to-Speech access.
 
 > **Roadmap note:** Editor is acceptable for the demo only. Phase 4 replaces it with a dedicated, least-privilege service account per Cloud Run service.
 
@@ -441,18 +442,18 @@ source control):
 - [ ] Project ID, region, billing status, and enabled APIs are known.
 - [ ] A Firestore Native-mode database exists in the chosen region.
 - [ ] A Gemini route has been selected: AI Studio key for the fast path or
-      Vertex AI/service-account authentication for the stronger path.
+  Vertex AI/service-account authentication for the stronger path.
 - [ ] Local development has either Application Default Credentials configured
-      or a documented mock mode for each Google client.
+  or a documented mock mode for each Google client.
 - [ ] The mobile team knows that the model input is landmarks, not a video URL,
-      and has confirmed whether on-device MediaPipe Hands is available in its
-      selected framework.
+  and has confirmed whether on-device MediaPipe Hands is available in its
+  selected framework.
 - [ ] A physical test device, a short test WAV, and at least one labeled
-      recording per planned sign are available. A single recording per label is
-      enough to validate plumbing, but not enough to claim model quality.
+  recording per planned sign are available. A single recording per label is
+  enough to validate plumbing, but not enough to claim model quality.
 - [ ] `.gitignore` excludes `.env`, credential files, generated audio, raw
-      private recordings, `__pycache__/`, and local model-training artifacts that
-      are not intentionally versioned.
+  private recordings, `__pycache__/`, and local model-training artifacts that
+  are not intentionally versioned.
 
 If a required cloud account or device is not available, implement the local
 fake and deterministic tests first. Do not weaken the API contract or commit a
@@ -539,6 +540,7 @@ pipeline produce different nesting, frame counts, or coordinate ranges.
 **Tool:** MediaPipe Tasks Hand Landmarker + Face Landmarker, OpenCV.
 
 **Install:**
+
 ```
 python -m pip install mediapipe opencv-contrib-python numpy
 ```
@@ -551,6 +553,7 @@ the chosen interpreter consistent for every later `pytest`, `uvicorn`, and
 training command.
 
 **What to write** (throwaway script, `scripts/00_sanity_check.py`):
+
 ```python
 import cv2
 import mediapipe as mp
@@ -827,6 +830,7 @@ def predict(landmarks: list) -> list[str]:
 ```
 
 **Test** (`tests/test_predict.py`): load one known sample from `dataset.npz`, call `predict()` on its raw (un-flattened) landmark array, assert the returned label matches that sample's true label.
+
 ```python
 import numpy as np
 from service.inference import predict
@@ -836,6 +840,7 @@ def test_predict_known_sample():
     sample, true_label = data["X"][0], data["y"][0]
     assert predict(sample.tolist())[0] == true_label
 ```
+
 Run: `pytest tests/test_predict.py`
 
 Add boundary tests for a sequence shorter than 60 frames, exactly 60 frames,
@@ -885,11 +890,13 @@ prediction or call a cloud service.
 **Run locally:** `uvicorn service.app:app --reload --port 8080`
 
 **Test:**
+
 ```
 curl -X POST localhost:8080/predict \
   -H "Content-Type: application/json" \
   -d @tests/fixtures/known_sample.json
 ```
+
 Confirm response is `{"keywords": [...]}` with HTTP 200. Also send an empty
 payload, a frame with 20 or 22 points, and 61 frames; each must be rejected
 without taking down the process. Use FastAPI's `TestClient` for this test in
@@ -1384,20 +1391,23 @@ conversation data are allowed.
 ## 7. Progress checklist
 
 **shared**
+
 - [ ] M0 — `contracts.md` written and reviewed by the mobile developer
 - [ ] Preflight — project, region, APIs, credentials/mock mode, device, and
-      data permissions recorded
+  data permissions recorded
 
 **ml-service**
+
 - [ ] M1 — two-hand + face webcam/MediaPipe sanity check plus no-camera fixture path (face asset/device check pending)
-- [x] M2 — reusable two-hand + face landmark extraction module and CLI (unit tests; real face extraction pending local face asset)
-- [x] M3 — deterministic `(N, 60, 520, 3)` dataset builder with shape/count evidence (unit tests; no training-quality claim)
+- [X] M2 — reusable two-hand + face landmark extraction module and CLI (unit tests; real face extraction pending local face asset)
+- [X] M3 — deterministic `(N, 60, 520, 3)` dataset builder with shape/count evidence (unit tests; no training-quality claim)
 - [ ] M4 — classifier trained, held-out accuracy ≥80%, metadata saved
 - [ ] M5 — inference wrapper and boundary unit tests passing
 - [ ] M6 — validated `/predict` endpoint working locally
 - [ ] M7 — clean container builds and live `/predict` matches locally
 
 **backend**
+
 - [ ] M1 — `/health` working locally and in mock mode
 - [ ] M2 — Gemini client tested with mock and real provider paths
 - [ ] M3 — TTS client tested and playable MP3 fixture available
@@ -1409,6 +1419,7 @@ conversation data are allowed.
 - [ ] M9 — deployed via Cloud Run, all endpoints re-verified live
 
 **mobile readiness**
+
 - [ ] Base URLs are configured per build environment; no secrets are present
 - [ ] Camera and microphone permissions have denial/retry states
 - [ ] On-device landmark output matches `(frames, 21, 3)` and MAX_FRAMES=60
@@ -1421,6 +1432,7 @@ conversation data are allowed.
 ---
 
 **post-MVP (see Roadmap phases 4–6)**
+
 - [ ] Phase 4 — audio on Cloud Storage with signed URLs
 - [ ] Phase 4 — least-privilege service accounts; Editor role removed
 - [ ] Phase 4 — Gemini on Vertex AI (ADC); no API key remains
@@ -1480,23 +1492,23 @@ from mocked or unavailable integrations.
 
 ## 10. Google tooling map (MVP choice → upgrade path)
 
-| Need | MVP choice | Upgrade path | Why it fits SignBridge |
-|---|---|---|---|
-| Hand landmarks | MediaPipe Hand Landmarker (desktop Python, mobile Tasks SDK) | same | Same 21-point output on desktop and phone keeps training and inference consistent |
-| Mobile app | Android-first (Kotlin) or Flutter if the team knows it | Flutter for cross-platform once MediaPipe plugin is proven | MediaPipe's first-party mobile support is strongest on native Android/iOS; Flutter needs a plugin or platform channel |
-| Model training | local venv + scikit-learn | Colab → TensorFlow/Keras → TFLite | Cheap, shareable notebooks; clean path to on-device inference |
-| Dataset/recordings | private Cloud Storage bucket + manifest in Sheets | Storage lifecycle rules, per-signer consent field | Keeps video out of git and shared drives |
-| Sentence generation | Gemini (AI Studio key) | Gemini on Vertex AI with ADC | Removes the API key; same prompt and function signature |
-| Speech → text | Cloud Speech-to-Text, `en-IN`, LINEAR16 16 kHz | configurable language per session | Already planned; just parametrize |
-| Text → speech | Cloud Text-to-Speech, `en-IN`, MP3 | configurable voice/language per session | Already planned |
-| Audio delivery | `/tmp` on Cloud Run (demo only) | Cloud Storage + signed URLs | Fixes cross-instance 404s; contract unchanged |
-| Conversation store | Firestore, polling via backend | Firestore realtime listeners + security rules | Removes polling and backend hop for reads |
-| Hosting | Cloud Run (two services) | same, with dedicated service accounts and max/min instances | Scales to zero; cheap for demos |
-| Secrets | Secret Manager | same; then no API keys at all | Keeps credentials out of images and repo |
-| CI/CD | Cloud Build trigger per service with path filters | `cloudbuild.yaml` with a test step; Artifact Registry | Prevents deploying a build that fails tests |
-| Auth / abuse | public endpoints (hackathon only) | Firebase Auth + App Check + rate limits | Needed before real users or private conversations |
-| Monitoring | Cloud Run logs | Cloud Logging, Monitoring uptime checks, Error Reporting, Crashlytics | Early warning for provider failures and app crashes |
-| Tracking/test log | Google Sheets | Looker Studio dashboard over the Sheet (optional) | Zero-setup evidence trail |
+| Need                | MVP choice                                                   | Upgrade path                                                          | Why it fits SignBridge                                                                                                |
+| ------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Hand landmarks      | MediaPipe Hand Landmarker (desktop Python, mobile Tasks SDK) | same                                                                  | Same 21-point output on desktop and phone keeps training and inference consistent                                     |
+| Mobile app          | Android-first (Kotlin) or Flutter if the team knows it       | Flutter for cross-platform once MediaPipe plugin is proven            | MediaPipe's first-party mobile support is strongest on native Android/iOS; Flutter needs a plugin or platform channel |
+| Model training      | local venv + scikit-learn                                    | Colab → TensorFlow/Keras → TFLite                                   | Cheap, shareable notebooks; clean path to on-device inference                                                         |
+| Dataset/recordings  | private Cloud Storage bucket + manifest in Sheets            | Storage lifecycle rules, per-signer consent field                     | Keeps video out of git and shared drives                                                                              |
+| Sentence generation | Gemini (AI Studio key)                                       | Gemini on Vertex AI with ADC                                          | Removes the API key; same prompt and function signature                                                               |
+| Speech → text      | Cloud Speech-to-Text,`en-IN`, LINEAR16 16 kHz              | configurable language per session                                     | Already planned; just parametrize                                                                                     |
+| Text → speech      | Cloud Text-to-Speech,`en-IN`, MP3                          | configurable voice/language per session                               | Already planned                                                                                                       |
+| Audio delivery      | `/tmp` on Cloud Run (demo only)                            | Cloud Storage + signed URLs                                           | Fixes cross-instance 404s; contract unchanged                                                                         |
+| Conversation store  | Firestore, polling via backend                               | Firestore realtime listeners + security rules                         | Removes polling and backend hop for reads                                                                             |
+| Hosting             | Cloud Run (two services)                                     | same, with dedicated service accounts and max/min instances           | Scales to zero; cheap for demos                                                                                       |
+| Secrets             | Secret Manager                                               | same; then no API keys at all                                         | Keeps credentials out of images and repo                                                                              |
+| CI/CD               | Cloud Build trigger per service with path filters            | `cloudbuild.yaml` with a test step; Artifact Registry               | Prevents deploying a build that fails tests                                                                           |
+| Auth / abuse        | public endpoints (hackathon only)                            | Firebase Auth + App Check + rate limits                               | Needed before real users or private conversations                                                                     |
+| Monitoring          | Cloud Run logs                                               | Cloud Logging, Monitoring uptime checks, Error Reporting, Crashlytics | Early warning for provider failures and app crashes                                                                   |
+| Tracking/test log   | Google Sheets                                                | Looker Studio dashboard over the Sheet (optional)                     | Zero-setup evidence trail                                                                                             |
 
 ---
 
@@ -1504,26 +1516,26 @@ from mocked or unavailable integrations.
 
 ### 11.1 Decisions to record before Phase 1
 
-| ID | Decision | Recommended default | Owner |
-|---|---|---|---|
-| D1 | Mobile stack and first demo platform | Android (Kotlin) unless the mobile dev is already productive in Flutter | Mobile dev |
+| ID | Decision                                                                            | Recommended default                                                         | Owner        |
+| -- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ------------ |
+| D1 | Mobile stack and first demo platform                                                | Android (Kotlin) unless the mobile dev is already productive in Flutter     | Mobile dev   |
 | D2 | Initial sign vocabulary (5–8 signs) and the demo script that uses only those signs | Choose signs for the target scenario (e.g. a pharmacy or shop conversation) | Product + ML |
-| D3 | Sign language/variant being captured and who the signers are | Record who and under what permission in the manifest | Product |
-| D4 | Gemini route for the demo | AI Studio key (fast); migrate to Vertex AI in Phase 4 | Backend |
-| D5 | Demo fallback policy (fixture replay, mock mode) and how it will be disclosed | Allowed, but labeled | Whole team |
+| D3 | Sign language/variant being captured and who the signers are                        | Record who and under what permission in the manifest                        | Product      |
+| D4 | Gemini route for the demo                                                           | AI Studio key (fast); migrate to Vertex AI in Phase 4                       | Backend      |
+| D5 | Demo fallback policy (fixture replay, mock mode) and how it will be disclosed       | Allowed, but labeled                                                        | Whole team   |
 
 ### 11.2 Risks
 
-| Risk | Likelihood | Impact | Mitigation |
-|---|---|---|---|
-| Accuracy is high on the team's own recordings but fails on other people | High | High | Evaluate on a held-out signer (Phase 5); show vocabulary limits honestly |
-| Desktop and mobile landmark pipelines disagree on shape, rate, or ranges | Medium | High | Shared fixture and parity check in Phase 1 before any network wiring |
-| Cold start of `ml-service` on demo day | Medium | Medium | Min instance = 1 for the demo |
-| `/tmp` audio 404s across Cloud Run instances | Medium | Medium | Max instances low for the demo; Cloud Storage in Phase 4 |
-| Public endpoints abused or run up cost | Medium | Medium | Budget alerts, max instances, request limits, then Auth + App Check |
-| Gemini model/SDK names or limits change | Medium | Low–Medium | Config-driven `GEMINI_MODEL`; verify against Google docs in Phase 4 |
-| Venue network or provider outage at demo | Medium | High | Labeled fixture/mock fallback and a recorded backup demo |
-| Privacy of recorded signers and conversations | Medium | High | Consent in manifest, private bucket, no raw audio/video in logs or git |
+| Risk                                                                     | Likelihood | Impact      | Mitigation                                                               |
+| ------------------------------------------------------------------------ | ---------- | ----------- | ------------------------------------------------------------------------ |
+| Accuracy is high on the team's own recordings but fails on other people  | High       | High        | Evaluate on a held-out signer (Phase 5); show vocabulary limits honestly |
+| Desktop and mobile landmark pipelines disagree on shape, rate, or ranges | Medium     | High        | Shared fixture and parity check in Phase 1 before any network wiring     |
+| Cold start of`ml-service` on demo day                                  | Medium     | Medium      | Min instance = 1 for the demo                                            |
+| `/tmp` audio 404s across Cloud Run instances                           | Medium     | Medium      | Max instances low for the demo; Cloud Storage in Phase 4                 |
+| Public endpoints abused or run up cost                                   | Medium     | Medium      | Budget alerts, max instances, request limits, then Auth + App Check      |
+| Gemini model/SDK names or limits change                                  | Medium     | Low–Medium | Config-driven`GEMINI_MODEL`; verify against Google docs in Phase 4     |
+| Venue network or provider outage at demo                                 | Medium     | High        | Labeled fixture/mock fallback and a recorded backup demo                 |
+| Privacy of recorded signers and conversations                            | Medium     | High        | Consent in manifest, private bucket, no raw audio/video in logs or git   |
 
 ---
 
