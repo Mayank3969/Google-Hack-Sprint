@@ -2,3 +2,6 @@ mediapipe==0.10.35
 # MediaPipe requires contrib; do not also install opencv-python (same cv2 namespace).
 opencv-contrib-python==5.0.0.93
 numpy==2.3.5
+torch==2.14.1
+fastapi==0.115.6
+uvicorn[standard]==0.34.0

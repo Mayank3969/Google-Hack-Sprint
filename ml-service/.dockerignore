@@ -1,0 +1,21 @@
+__pycache__/
+.pytest_cache/
+.venv/
+tests/
+data/
+*.ipynb
+*.npy
+*.npz
+*.mp4
+*.avi
+*.mov
+*.wav
+.env
+.git/
+.gitignore
+
+# The production M4 checkpoint is required by the Dockerfile. Keep these
+# paths eligible for the build context if broader ignore rules are added.
+!model/
+!model/bigru/
+!model/bigru/bigru_best.pt

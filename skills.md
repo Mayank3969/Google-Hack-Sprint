@@ -804,52 +804,55 @@ set are stable.
 
 **File:** `service/inference.py`
 
-```python
-import pickle
-from pathlib import Path
-import numpy as np
+M4 now trains a PyTorch BiGRU checkpoint, not the earlier flattened Random
+Forest artifact. The checkpoint is `model/bigru/bigru_best.pt` and contains the
+model weights, label names, `(110, 3)` feature contract, 60-frame contract, and
+the `temporal-normalize-nonzero-v1` preprocessing version.
 
-MAX_FRAMES = 60
-MODEL_PATH = Path(__file__).resolve().parents[1] / "model" / "classifier.pkl"
+The mobile-shaped input is:
 
-with MODEL_PATH.open("rb") as f:
-    _clf = pickle.load(f)
-
-def predict(landmarks: list) -> list[str]:
-    arr = np.array(landmarks)           # shape: (frames, 21, 3)
-    if arr.ndim != 3 or arr.shape[1:] != (21, 3):
-        raise ValueError("landmarks must have shape (frames, 21, 3)")
-    if len(arr) >= MAX_FRAMES:
-        arr = arr[:MAX_FRAMES]
-    else:
-        pad = np.zeros((MAX_FRAMES - len(arr), 21, 3))
-        arr = np.concatenate([arr, pad], axis=0)
-    flat = arr.reshape(1, -1)
-    pred = _clf.predict(flat)
-    return [pred[0]]
+```text
+(frames, 110, 3), where 1 <= frames <= 60
 ```
 
-**Test** (`tests/test_predict.py`): load one known sample from `dataset.npz`, call `predict()` on its raw (un-flattened) landmark array, assert the returned label matches that sample's true label.
+The 110 points are left hand (21), right hand (21), and compact face (68). M5
+must apply the exact M4 temporal normalization before model inference. It must
+reject malformed shapes, non-finite values, more than 60 frames, incompatible
+checkpoints, and missing model artifacts with controlled errors.
 
 ```python
-import numpy as np
-from service.inference import predict
+from service.inference import predict, predict_details
 
-def test_predict_known_sample():
-    data = np.load("model/dataset.npz", allow_pickle=True)
-    sample, true_label = data["X"][0], data["y"][0]
-    assert predict(sample.tolist())[0] == true_label
+# M6 can use this directly after receiving a validated landmark sequence.
+keywords = predict(landmarks)
+details = predict_details(landmarks, top_k=5)
 ```
 
-Run: `pytest tests/test_predict.py`
+`predict()` returns the isolated predicted word in the existing M6-compatible
+list shape, for example `['pay']`. `predict_details()` returns the label,
+class ID, confidence, and top-k alternatives for debugging/UI confidence
+display.
 
-Add boundary tests for a sequence shorter than 60 frames, exactly 60 frames,
-longer than 60 frames, an all-zero missing-hand sequence, and an invalid shape.
-The short and long cases must use the same pad/truncate helper as dataset
-building; do not duplicate subtly different preprocessing in the API layer.
-Import the model path relative to `service/inference.py` (not the caller's
-current working directory) and fail with a clear startup error if the trained
-artifact is missing.
+**Test** (`tests/test_inference.py`): create or load an M4 checkpoint, pass a
+known raw `(frames, 110, 3)` sample through `InferenceEngine`, and assert that
+the result has a valid label and confidence. Also assert that M5 preprocessing
+matches M4 exactly.
+
+```python
+def test_predict_known_sample(engine, sample):
+    result = engine.predict_details(sample, top_k=5)
+    assert result.label
+    assert 0.0 <= result.confidence <= 1.0
+```
+
+Run: `pytest tests/test_inference.py`
+
+The tests must cover a sequence shorter than 60 frames, exactly 60 frames, an
+all-zero missing-hand sequence, invalid `(frames, 42, 3)` and `(frames, 110, 2)`
+shapes, more than 60 frames, an incompatible preprocessing version, and a
+missing checkpoint. Import the model path relative to `service/inference.py`
+or use `SIGNBRIDGE_MODEL_PATH`; do not depend on the caller's working
+directory.
 
 ---
 
@@ -859,27 +862,21 @@ artifact is missing.
 
 **Tool:** FastAPI + Uvicorn.
 
-**Install:** `pip install fastapi uvicorn pydantic`
+**Install:** `pip install fastapi uvicorn[standard] pydantic httpx`
 
-```python
-from fastapi import FastAPI
-from pydantic import BaseModel
-from service.inference import predict
+The implemented endpoint imports the M5 BiGRU wrapper and exposes:
 
-app = FastAPI()
+- `GET /health` → `{"status":"ok"}` without loading the checkpoint;
+- `POST /predict` with `{ "landmarks": [[[x,y,z], ...]] }`;
+- strict `(frames, 110, 3)` validation for 1–60 frames;
+- finite numeric coordinate validation and a 512 KiB request-body limit;
+- HTTP 422 for malformed payloads, HTTP 413 for oversized bodies, and HTTP 503
+  when the trained checkpoint is missing or unavailable; and
+- one isolated predicted word in the contract shape `{"keywords":["pay"]}`.
 
-class LandmarkInput(BaseModel):
-    landmarks: list
-
-@app.get("/health")
-def health():
-    return {"status": "ok"}
-
-@app.post("/predict")
-def predict_endpoint(payload: LandmarkInput):
-    keywords = predict(payload.landmarks)
-    return {"keywords": keywords}
-```
+The optional bounded `top_k` query parameter is retained for compatibility but
+does not turn alternatives into keyword output. `/predict` always returns one
+word because the current M4 model is an isolated-word classifier.
 
 Add request validation at this boundary so malformed mobile payloads receive a
 useful `422` instead of a model traceback. Validate the nested shape, numeric
@@ -897,10 +894,11 @@ curl -X POST localhost:8080/predict \
   -d @tests/fixtures/known_sample.json
 ```
 
-Confirm response is `{"keywords": [...]}` with HTTP 200. Also send an empty
-payload, a frame with 20 or 22 points, and 61 frames; each must be rejected
-without taking down the process. Use FastAPI's `TestClient` for this test in
-CI and one real curl request for the local smoke test.
+Confirm response is `{"keywords": [...]}` with HTTP 200 when
+`model/bigru/bigru_best.pt` is installed. Also send an empty payload, a frame
+with 20 or 22 points, 61 frames, non-finite coordinates, and an oversized body;
+each must be rejected without taking down the process. Use FastAPI's
+`TestClient` for CI and one real HTTP request for the local smoke test.
 
 ---
 
@@ -908,23 +906,19 @@ CI and one real curl request for the local smoke test.
 
 **File:** `Dockerfile`
 
-```dockerfile
-FROM python:3.11-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-ENV PORT=8080
-CMD ["uvicorn", "service.app:app", "--host", "0.0.0.0", "--port", "8080"]
-```
+The implemented image uses Python 3.13, installs pinned runtime dependencies,
+copies `scripts/`, `service/`, `models/`, and `model/`, and runs Uvicorn on
+Cloud Run's `${PORT:-8080}`. It fails the build unless the non-empty M4
+checkpoint exists at `model/bigru/bigru_best.pt`; a source placeholder is not
+deployable.
 
-Create `requirements.txt` with pinned, compatible runtime dependencies and a
-`.dockerignore` that excludes `.venv`, tests' local recordings, secrets, and
-unneeded caches. Build and run the image locally before using Cloud Run:
+Create pinned runtime dependencies and a `.dockerignore` that excludes `.venv`,
+tests, recordings, secrets, and unneeded caches. Build and run the image from
+the `ml-service/` directory before using Cloud Run:
 
 ```text
-docker build -t signbridge-ml ./ml-service
-docker run --rm -p 8080:8080 signbridge-ml
+docker build --tag signbridge-ml:local .
+docker run --rm --publish 8080:8080 --env PORT=8080 signbridge-ml:local
 ```
 
 Deployment itself is covered in section 6 (GitHub → Cloud Run via Console) —
@@ -933,7 +927,13 @@ from a clean checkout with only its declared files and environment variables;
 it must not depend on a developer's current working directory or untracked
 model file.
 
-**Test (after deploying via section 6):** hit the live URL's `/predict` with the same payload from M6 — confirm identical response. Save this URL; `backend` will never call it directly (the mobile app calls `ml-service` directly for the sign→keyword step, then sends keywords to `backend` for the rest) — confirm this matches how your mobile app team expects to call it, and adjust the contract in `shared/contracts.md` if not.
+**Test (after deploying via section 6):** hit the live URL's `/health`, then
+send the same known landmark fixture from M6 to `/predict` and confirm the
+response matches local inference. Save this URL; `backend` will never call it
+directly (the mobile app calls `ml-service` directly for the sign→keyword step,
+then sends the result to `backend`). Docker and `gcloud` must be available for
+local image/deployment checks; if either is unavailable, report that external
+gate as unverified rather than claiming M7 deployment passed.
 
 ---
 
