@@ -8,7 +8,7 @@ without guessing about payload shapes, permissions, or failure states.
 
 The target is a demonstrable vertical slice, not just an exported model:
 
-`mobile camera -> 21-point landmarks -> ml-service -> keywords -> backend -> sentence + audio -> mobile playback`
+`mobile camera -> two-hand + face landmarks -> ml-service -> keywords -> backend -> sentence + audio -> mobile playback`
 
 and, in the opposite direction:
 
@@ -520,11 +520,13 @@ identifying or private recordings unless the team has permission.
 
 Use these invariants in both the Python scripts and the mobile implementation:
 
-- one hand, 21 landmarks, three numeric coordinates per landmark;
+- two stable hand slots (left/right), 21 landmarks per hand, followed by 68
+  compact face landmarks: each frame is `(110, 3)`;
 - x/y normalized by MediaPipe; preserve z rather than dropping it;
 - a fixed sequence length of 60 frames, truncating a longer window and
   zero-padding a shorter window;
-- all-zero 21-point frames when no hand is detected; and
+- all-zero 21-point blocks for missing hands and an all-zero 68-point block for
+  a missing face; and
 - the same frame sampling rate or an explicitly documented resampling rule.
 
 The agent should create a tiny known-good fixture (for example, a saved array
@@ -534,11 +536,11 @@ pipeline produce different nesting, frame counts, or coordinate ranges.
 
 ### M1 — Environment + webcam sanity check
 
-**Tool:** MediaPipe (Hands solution), OpenCV.
+**Tool:** MediaPipe Tasks Hand Landmarker + Face Landmarker, OpenCV.
 
 **Install:**
 ```
-python -m pip install mediapipe opencv-python numpy
+python -m pip install mediapipe opencv-contrib-python numpy
 ```
 
 Create or activate the project virtual environment before installing. On
@@ -554,7 +556,7 @@ import cv2
 import mediapipe as mp
 
 mp_hands = mp.solutions.hands
-hands = mp_hands.Hands(static_image_mode=False, max_num_hands=1, min_detection_confidence=0.5)
+hands = ...  # Tasks Hand Landmarker with num_hands=2; Face Landmarker runs alongside it
 
 cap = cv2.VideoCapture(0)
 while cap.isOpened():
@@ -569,9 +571,11 @@ while cap.isOpened():
         break
 ```
 
-> **Roadmap note:** `mp.solutions.hands` is MediaPipe's legacy interface. Prefer the Hand Landmarker (Tasks API) so desktop extraction behaves like the mobile SDKs; the `(frames, 21, 3)` output is identical.
+> **Roadmap note:** `mp.solutions.hands` is MediaPipe's legacy interface. The implemented script uses Tasks Hand Landmarker plus Face Landmarker; its frame output is `(110, 3)`.
 
-**How it works:** MediaPipe's `Hands` object takes an RGB frame and returns `multi_hand_landmarks` — a list of detected hands, each with exactly 21 points (`x, y, z`, normalized 0-1). This script just proves the pipeline from camera to landmarks works before you build anything sign-specific.
+**How it works:** the Tasks Hand Landmarker returns up to two 21-point hands and the Face Landmarker must return 478 source points. M1 reports 68 selected points. M2 uses `FACE_FEATURE_VERSION="compact-v1"`, `FACE_LANDMARK_INDICES`, and `FACE_FEATURE_GROUPS`: concatenate the exact curated RIGHT_EYE, LEFT_EYE, RIGHT_EYEBROW, LEFT_EYEBROW, LIPS_OUTER, LIPS_INNER, NOSE indices documented in `shared/contracts.md`, preserving within-group order. Output order is left-hand, right-hand, compact face; missing blocks are zero-filled.
+
+**Local asset requirement:** keep the hand asset at `ml-service/models/hand_landmarker.task` and place a compatible local `face_landmarker.task` at a path supplied through `--face-model`. The implementation intentionally does not download model assets or commit a face model automatically.
 
 **Action:** first run this with a laptop webcam to prove the library and camera
 permissions work. If the worker has no camera, add a deterministic image/video
@@ -579,8 +583,9 @@ fallback for CI rather than declaring the module passed. Always release the
 camera and close the MediaPipe context in a `finally` block in the production
 version.
 
-**Test:** with a hand visible, console prints `21`. With no hand, prints `0`
-(not an error/crash). Also run one no-camera or prerecorded-fixture path so
+**Test:** with one hand visible, console reports one detected hand; with two,
+it reports two. Face detection reports `478` points when a face is visible and
+`0` otherwise. With no hands, it reports zero hands without crashing. Also run one no-camera or prerecorded-fixture path so
 automated builds do not depend on an interactive desktop device.
 
 ---
@@ -590,14 +595,14 @@ automated builds do not depend on an interactive desktop device.
 **Files:** `scripts/extract_landmarks_module.py` (reusable function) and
 `scripts/01_extract_landmarks.py` (command-line wrapper).
 
-**Tool:** same MediaPipe Hands, now reading from a file instead of a live camera.
+**Tool:** MediaPipe Tasks Hand + Face Landmarkers, now reading from a file instead of a live camera.
 
 Put `extract_landmarks(video_path)` in the importable module and make the
 numbered script import it, parse one input path, save the `.npy`, and print the
 shape. This avoids the broken import pattern where M3 tries to import a
 function from a filename that Python cannot import as a normal module. Validate
 that the input opens, release the capture and MediaPipe resources in all exit
-paths, and return an empty `(0, 21, 3)` array for a valid video with no frames
+paths, and return an empty `(0, 110, 3)` array for a valid video with no frames
 rather than crashing.
 
 ```python
@@ -609,7 +614,7 @@ import sys
 mp_hands = mp.solutions.hands
 
 def extract_landmarks(video_path: str) -> np.ndarray:
-    hands = mp_hands.Hands(static_image_mode=False, max_num_hands=1, min_detection_confidence=0.5)
+    hands = ...  # Tasks Hand Landmarker, num_hands=2; Face Landmarker runs alongside it
     cap = cv2.VideoCapture(video_path)
     sequence = []
     while cap.isOpened():
@@ -624,7 +629,7 @@ def extract_landmarks(video_path: str) -> np.ndarray:
             frame_points = [[0.0, 0.0, 0.0]] * 21   # no hand detected this frame — pad with zeros
         sequence.append(frame_points)
     cap.release()
-    return np.array(sequence)   # shape: (num_frames, 21, 3)
+    return np.array(sequence)   # shape: (num_frames, 110, 3)
 
 if __name__ == "__main__":
     arr = extract_landmarks(sys.argv[1])
@@ -633,10 +638,10 @@ if __name__ == "__main__":
     print(f"saved {out_path} with shape {arr.shape}")
 ```
 
-**How to run:** `python scripts/01_extract_landmarks.py data/raw_videos/pay/pay_01.mp4`
+**How to run:** `python scripts/01_extract_landmarks.py data/raw_videos/pay/pay_01.mp4 --model models/hand_landmarker.task --face-model models/face_landmarker.task`
 
 **Test:** run on one sample recording. Confirm the printed shape is
-`(num_frames, 21, 3)` where `num_frames` is roughly
+`(num_frames, 110, 3)` where `num_frames` is roughly
 `video_length_seconds × fps`. Also run a fixture with no detected hand and
 confirm its frame entries are exactly 21 zero points, matching what the mobile
 client will send.
@@ -660,7 +665,7 @@ MAX_FRAMES = 60   # fixed length every sequence gets padded/truncated to
 def pad_or_truncate(seq, max_len=MAX_FRAMES):
     if len(seq) >= max_len:
         return seq[:max_len]
-    pad = np.zeros((max_len - len(seq), 21, 3))
+    pad = np.zeros((max_len - len(seq), 110, 3))
     return np.concatenate([seq, pad], axis=0)
 
 X, y = [], []
@@ -671,7 +676,7 @@ for sign_label in os.listdir(RAW_DIR):
         X.append(pad_or_truncate(seq))
         y.append(sign_label)
 
-X = np.array(X)   # shape: (num_samples, MAX_FRAMES, 21, 3)
+X = np.array(X)   # shape: (num_samples, MAX_FRAMES, 110, 3)
 y = np.array(y)
 np.savez("model/dataset.npz", X=X, y=y)
 print(f"dataset built: X={X.shape}, y={y.shape}")
@@ -688,9 +693,59 @@ file) so inference cannot silently use a different preprocessing contract. Make
 `scripts/` an importable package (add its minimal `__init__.py`) and use one
 documented invocation style so the M2 import works both locally and in CI.
 
-**Test:** `len(X) == len(y)`, `X.shape[1:] == (60, 21, 3)`, and `set(y)` exactly
+Each frame contains 21 left-hand points, 21 right-hand points, and 68 compact face
+points; missing hand or face blocks remain zero-filled. Dataset construction
+requires both local hand and face model assets (the face model is never
+downloaded).
+
+Folder and archive metadata contain `face_feature_version`, `face_landmark_indices`, `face_feature_groups`, `face_points=68`, and `face_source_points=478`. Rebuild old 520-point datasets. The Colab notebook retains its previous representation until updated separately.
+
+**Test:** `len(X) == len(y)`, `X.shape[1:] == (60, 110, 3)`, and `set(y)` exactly
 matches the folder names under `data/raw_videos/`. Print per-label counts and
 retain that output as the dataset evidence for M4.
+
+#### M3 WLASL archive mode
+
+The workspace also contains a WLASL archive outside the cloned repository:
+`E:\Desktop\Google Hackathon\archive (1)`. Do not copy its videos into
+`ml-service/data/raw_videos`. Use the benchmark metadata directly so the
+official signer-independent train/validation/test split is preserved.
+
+The builder accepts:
+
+```powershell
+python scripts/02_build_dataset.py `
+  --archive-root "E:\Desktop\Google Hackathon\archive (1)" `
+  --benchmark 100 `
+  --subset train `
+  --max-samples 20 `
+  --output ".\model\wlasl100-train.npz" `
+  --model ".\models\hand_landmarker.task" `
+  --face-model "C:\path\to\face_landmarker.task"
+```
+
+`--benchmark` may be `100`, `300`, `1000`, `2000`, or a benchmark JSON path.
+The loader reads `wlasl_class_list.txt`, the selected `nslt_*.json`,
+`WLASL_v0.3.json`, and `videos/`. It skips annotations whose video file is
+missing, preserves `video_id`, `gloss`, `subset`, `signer_id`, and the
+1-based inclusive benchmark frame range, and remaps sparse source class IDs to
+contiguous dataset IDs. The output includes `dataset.manifest.json` without
+absolute paths.
+
+The extractor uses the benchmark action frame range before the existing
+60-frame padding/truncation step. It does not copy or modify source videos.
+Start with `--benchmark 100 --max-samples 20`, inspect the manifest, then scale
+to the full benchmark after the face model and extraction throughput are
+verified. The WLASL videos are ASL; do not claim Indian Sign Language accuracy
+from this dataset.
+
+For a Colab run over the archive, use
+`notebooks/signbridge_wlasl_12k_colab.ipynb`. It is optimized for the full ~11,980 video
+dataset with native T4 GPU acceleration, fast video seeking (`cv2.CAP_PROP_POS_FRAMES`),
+frame downscaling, and safe crash/disconnect resuming (`RESUME=True`). It uploads/unzips
+the archive, downloads local MediaPipe `.task` assets, maps benchmark class IDs to gloss words,
+filters missing videos, crops frame ranges, and writes sharded NPZ files with the
+`(batch, 60, 110, 3)` feature contract. It reports progress and ETA every 500 frames.
 
 ---
 
@@ -1334,9 +1389,9 @@ conversation data are allowed.
       data permissions recorded
 
 **ml-service**
-- [ ] M1 — webcam/MediaPipe sanity check plus no-camera fixture path
-- [ ] M2 — reusable landmark extraction module and CLI
-- [ ] M3 — deterministic dataset builder with shape/count evidence
+- [ ] M1 — two-hand + face webcam/MediaPipe sanity check plus no-camera fixture path (face asset/device check pending)
+- [x] M2 — reusable two-hand + face landmark extraction module and CLI (unit tests; real face extraction pending local face asset)
+- [x] M3 — deterministic `(N, 60, 520, 3)` dataset builder with shape/count evidence (unit tests; no training-quality claim)
 - [ ] M4 — classifier trained, held-out accuracy ≥80%, metadata saved
 - [ ] M5 — inference wrapper and boundary unit tests passing
 - [ ] M6 — validated `/predict` endpoint working locally

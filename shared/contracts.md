@@ -46,31 +46,42 @@ Response, HTTP 200:
 
 The health check must not call an external provider or require a camera.
 
-### `POST /predict` — `ml-service`
+### `POST /predict` — `ml-service` (M1/M2 expanded feature contract)
 
 Request:
 
 ```json
 {
   "landmarks": [
-    [
-      [0.10, 0.20, 0.00],
-      [0.11, 0.21, -0.01]
-    ]
+    [[0.10, 0.20, 0.00], "... 109 more [x,y,z] points ..."]
   ]
 }
 ```
 
-The abbreviated example above shows two points only for readability. A valid
-request must follow these rules:
+Each frame is exactly 110 points: 21 left-hand points, 21 right-hand points,
+then 68 selected face points using `FACE_FEATURE_VERSION="compact-v1"`.
+Validate the model returns 478 source points, then concatenate these groups
+in the listed order without sorting their indices:
+
+```text
+RIGHT_EYE=[33,7,163,144,145,153,154,155,133,173,157,158,159,160,161,246]
+LEFT_EYE=[263,249,390,373,374,380,381,382,362,398,384,385,386,387,388,466]
+RIGHT_EYEBROW=[70,63,105,66,107]
+LEFT_EYEBROW=[336,296,334,293,300]
+LIPS_OUTER=[61,146,91,181,84,17,314,405,321,375]
+LIPS_INNER=[78,95,88,178,87,14,317,402,318,324]
+NOSE=[1,2,4,5,6,168]
+```
+
+A valid request must follow:
 
 - `landmarks` is an array of 1–60 frames.
-- Every frame contains exactly 21 points.
+- Every frame contains exactly 110 points in that order.
 - Every point contains numeric `[x, y, z]` values.
 - MediaPipe-normalized `x` and `y` values should be in the range 0..1.
 - `z` is preserved from the hand-landmark detector.
-- A frame with no detected hand is represented by 21 points of
-  `[0.0, 0.0, 0.0]`.
+- Missing hands and missing face are represented by zero-filled blocks (21 and
+  68 points respectively).
 - The mobile client must not send video bytes or a video URL to this endpoint.
 
 Canonical request shape:
@@ -78,7 +89,7 @@ Canonical request shape:
 ```json
 {
   "landmarks": [
-    [[0.10,0.20,0.00], [0.11,0.21,-0.01], "... 19 more points ..."],
+    [[0.10,0.20,0.00], "... 109 more points ..."],
     "... more frames up to 60 ..."
   ]
 }
@@ -232,7 +243,7 @@ The contract is ready for mobile implementation when these checks pass against
 the deployed services:
 
 1. Create a session and retain `room_id`.
-2. Capture a known sign, produce `(frames, 21, 3)` landmarks, and call
+2. Capture a known sign, produce `(frames, 110, 3)` landmarks, and call
    `ml-service /predict`.
 3. Send the returned keywords to `backend /process`.
 4. Fetch and play the returned `audio_url` on a physical device.

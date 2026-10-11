@@ -1,0 +1,19 @@
+# Local environments and Python caches (do not remove already tracked files).
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Private recordings, extracted landmarks, and generated training datasets.
+ml-service/data/
+ml-service/model/*.npz
+ml-service/model/*.metadata.json
+ml-service/model/*.manifest.json
+ml-service/model/*.json
+*.npy
+ml-service/models/face_landmarker.task
+
+# Local credentials/configuration.
+.env
+.env.*
+!.env.example
