@@ -3,5 +3,5 @@ mediapipe==0.10.35
 opencv-contrib-python==5.0.0.93
 numpy==2.3.5
 torch==2.14.1
-fastapi==0.115.6
-uvicorn[standard]==0.34.0
+fastapi==0.115.14
+uvicorn[standard]==0.35.0

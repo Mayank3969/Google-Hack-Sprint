@@ -26,6 +26,8 @@ client = TestClient(app)
 def isolated_audio_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     monkeypatch.setattr(process_route, "AUDIO_DIR", tmp_path)
     monkeypatch.delenv("PUBLIC_BASE_URL", raising=False)
+    monkeypatch.delenv("K_SERVICE", raising=False)
+    monkeypatch.setenv("REQUIRE_HTTPS_PUBLIC_BASE_URL", "0")
     monkeypatch.setenv("MOCK_EXTERNAL_SERVICES", "1")
     return tmp_path
 
@@ -58,6 +60,7 @@ def test_process_uses_configured_public_base_url(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("PUBLIC_BASE_URL", "https://backend.example.test/")
+    monkeypatch.setenv("REQUIRE_HTTPS_PUBLIC_BASE_URL", "1")
 
     response = client.post("/process", json={"keywords": ["hello"]})
 
@@ -142,3 +145,89 @@ def test_tts_failure_returns_controlled_502(
 
     assert response.status_code == 502
     assert response.json() == {"detail": "speech synthesis failed"}
+
+
+@pytest.fixture
+def forbid_process_side_effects(monkeypatch: pytest.MonkeyPatch) -> None:
+    def unexpected_call(*args, **kwargs):
+        pytest.fail("invalid public URL must fail before providers or file writes")
+
+    monkeypatch.setattr(process_route, "keywords_to_sentence", unexpected_call)
+    monkeypatch.setattr(process_route, "text_to_speech", unexpected_call)
+    monkeypatch.setattr(Path, "write_bytes", unexpected_call)
+
+
+@pytest.mark.parametrize(
+    "base_url",
+    [
+        "relative/path", "ftp://backend.example.test", "https://",
+        "https://[broken", "https://[::1]junk", "https://backend.example.test:bad",
+        "https://backend.example.test:65536", "https://backend.example.test:0",
+        "https://backend.example.test:", "https://user:secret@backend.example.test",
+        "https://backend.example.test?token=secret", "https://backend.example.test#audio",
+        "https://backend.example.test?", "https://backend.example.test#",
+        "https://bad host", "https://bad\\host", "https://bad\nhost",
+        "https://backend.example.test\x7f", "https://bad%20host",
+        "https://bad..host", "https://bad.host..", "https://-bad.host", " ",
+    ],
+)
+def test_invalid_public_url_is_controlled_before_side_effects(
+    isolated_audio_dir, forbid_process_side_effects, monkeypatch, base_url,
+) -> None:
+    monkeypatch.setenv("PUBLIC_BASE_URL", base_url)
+    response = client.post("/process", json={"keywords": ["hello"]})
+    assert response.status_code == 500
+    assert response.json() == {
+        "detail": "PUBLIC_BASE_URL must be an absolute HTTP(S) URL without credentials, query, or fragment"
+    }
+    assert not list(isolated_audio_dir.iterdir())
+
+
+@pytest.mark.parametrize("cloud_run", [False, True])
+def test_deployed_http_url_is_rejected_before_side_effects(
+    isolated_audio_dir, forbid_process_side_effects, monkeypatch, cloud_run,
+) -> None:
+    monkeypatch.setenv("PUBLIC_BASE_URL", "http://backend.example.test")
+    if cloud_run:
+        monkeypatch.setenv("K_SERVICE", "signbridge-backend")
+    else:
+        monkeypatch.setenv("REQUIRE_HTTPS_PUBLIC_BASE_URL", "1")
+    response = client.post("/process", json={"keywords": ["hello"]})
+    assert response.status_code == 500
+    assert response.json() == {
+        "detail": "PUBLIC_BASE_URL must use HTTPS in deployed environments"
+    }
+
+
+@pytest.mark.parametrize("base_url", [None, "", " "])
+def test_deployed_url_cannot_fall_back_to_request_host(
+    isolated_audio_dir, forbid_process_side_effects, monkeypatch, base_url,
+) -> None:
+    monkeypatch.setenv("REQUIRE_HTTPS_PUBLIC_BASE_URL", "1")
+    if base_url is not None:
+        monkeypatch.setenv("PUBLIC_BASE_URL", base_url)
+    with TestClient(app, base_url="https://untrusted-host.test") as https_client:
+        response = https_client.post("/process", json={"keywords": ["hello"]})
+    assert response.status_code == 500
+    assert response.json() == {
+        "detail": "PUBLIC_BASE_URL must be configured in deployed environments"
+    }
+
+
+@pytest.mark.parametrize(
+    "base_url", ["http://localhost:8081/", "http://[::1]:8081/", "https://backend.example.test/api/"]
+)
+def test_valid_local_and_prefixed_public_urls(isolated_audio_dir, monkeypatch, base_url) -> None:
+    monkeypatch.setenv("PUBLIC_BASE_URL", base_url)
+    response = client.post("/process", json={"keywords": ["hello"]})
+    assert response.status_code == 200
+    assert response.json()["audio_url"].startswith(base_url.rstrip("/") + "/audio/")
+
+
+def test_invalid_https_flag_fails_closed(
+    isolated_audio_dir, forbid_process_side_effects, monkeypatch,
+) -> None:
+    monkeypatch.setenv("REQUIRE_HTTPS_PUBLIC_BASE_URL", "tru")
+    response = client.post("/process", json={"keywords": ["hello"]})
+    assert response.status_code == 500
+    assert response.json() == {"detail": "REQUIRE_HTTPS_PUBLIC_BASE_URL must be a boolean flag"}

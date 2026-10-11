@@ -1398,25 +1398,25 @@ conversation data are allowed.
 
 **ml-service**
 
-- [ ] M1 — two-hand + face webcam/MediaPipe sanity check plus no-camera fixture path (face asset/device check pending)
+- [~] M1 — two-hand + face webcam/MediaPipe sanity check plus no-camera fixture path (face asset/device check pending)
 - [X] M2 — reusable two-hand + face landmark extraction module and CLI (unit tests; real face extraction pending local face asset)
-- [X] M3 — deterministic `(N, 60, 520, 3)` dataset builder with shape/count evidence (unit tests; no training-quality claim)
-- [ ] M4 — classifier trained, held-out accuracy ≥80%, metadata saved
-- [ ] M5 — inference wrapper and boundary unit tests passing
-- [ ] M6 — validated `/predict` endpoint working locally
-- [ ] M7 — clean container builds and live `/predict` matches locally
+- [X] M3 — deterministic `(N, 60, 110, 3)` dataset builder with shape/count evidence (unit tests; no training-quality claim)
+- [~] M4 — BiGRU classifier trainer and Colab notebook implemented; real checkpoint and held-out accuracy evidence pending
+- [X] M5 — BiGRU inference wrapper and boundary unit tests passing
+- [X] M6 — validated `/predict` endpoint working locally and in loopback HTTP integration
+- [~] M7 — Dockerfile and Cloud Run readiness implemented; image/live deployment pending Docker, checkpoint, and cloud access
 
 **backend**
 
-- [ ] M1 — `/health` working locally and in mock mode
-- [ ] M2 — Gemini client tested with mock and real provider paths
-- [ ] M3 — TTS client tested and playable MP3 fixture available
-- [ ] M4 — `/process` returns a phone-reachable audio URL
-- [ ] M5 — STT client tested against a format-verified WAV
-- [ ] M6 — `/transcribe` validates base64 and works through HTTP
-- [ ] M7 — Firestore client tested with fake/emulator and real smoke path
-- [ ] M8 — `/session` endpoints validate sender/text and serialize timestamps
-- [ ] M9 — deployed via Cloud Run, all endpoints re-verified live
+- [X] M1 — `/health` working locally and in mock mode
+- [~] M2 — Gemini client tested with mock and controlled provider-error paths; live provider pending credentials
+- [X] M3 — TTS client tested with a playable/mock MP3 fixture; live provider pending credentials
+- [X] M4 — `/process` returns a retrievable audio URL locally; durable production audio pending
+- [X] M5 — STT client tested against a format-verified WAV; live provider pending credentials
+- [X] M6 — `/transcribe` validates base64 and works through HTTP
+- [~] M7 — Firestore client tested with an in-memory fake; emulator/real smoke path pending
+- [X] M8 — `/session` endpoints validate sender/text and serialize timestamps
+- [~] M9 — Dockerfile and Cloud Run readiness implemented; image/live deployment pending Docker and cloud access
 
 **mobile readiness**
 

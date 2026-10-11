@@ -1,0 +1,3 @@
+# Install both services and their test dependencies into the root .venv.
+-r backend/requirements-dev.txt
+-r ml-service/requirements-dev.txt

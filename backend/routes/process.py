@@ -6,8 +6,9 @@ import os
 import re
 import tempfile
 import uuid
+from ipaddress import IPv6Address
 from pathlib import Path as FilePath
-from urllib.parse import urlparse
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
@@ -73,16 +74,63 @@ class ProcessInput(BaseModel):
 
 
 def _public_base_url(request: Request) -> str:
-    """Resolve a valid absolute base URL for the returned audio link."""
+    """Validate configuration before paid work; deployed links require HTTPS."""
 
-    configured_url = os.getenv("PUBLIC_BASE_URL", "").strip()
-    base_url = configured_url or str(request.base_url)
-    base_url = base_url.rstrip("/")
-    parsed = urlparse(base_url)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+    https_flag = os.getenv("REQUIRE_HTTPS_PUBLIC_BASE_URL", "0").strip().lower()
+    if https_flag not in {"0", "false", "no", "off", "1", "true", "yes", "on"}:
         raise HTTPException(
             status_code=500,
-            detail="PUBLIC_BASE_URL must be an absolute HTTP(S) URL",
+            detail="REQUIRE_HTTPS_PUBLIC_BASE_URL must be a boolean flag",
+        )
+    require_https = bool(os.getenv("K_SERVICE")) or https_flag in {
+        "1", "true", "yes", "on"
+    }
+    configured_url = os.getenv("PUBLIC_BASE_URL", "")
+    if require_https and not configured_url.strip():
+        raise HTTPException(
+            status_code=500,
+            detail="PUBLIC_BASE_URL must be configured in deployed environments",
+        )
+    base_url = (configured_url or str(request.base_url)).rstrip("/")
+    try:
+        # urlsplit silently removes some control characters, so reject them first.
+        if any(
+            character.isspace() or ord(character) < 32 or ord(character) == 127
+            for character in base_url
+        ) or any(c in base_url for c in "\\?#"):
+            raise ValueError("invalid URL characters")
+        parsed = urlsplit(base_url)
+        hostname = parsed.hostname
+        port = parsed.port  # Access validates malformed/out-of-range port values.
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.netloc.endswith(":")
+            or port == 0
+        ):
+            raise ValueError("invalid HTTP URL")
+        if ":" in hostname:
+            if not re.fullmatch(r"\[[0-9a-fA-F:.]+\](?::[0-9]+)?", parsed.netloc):
+                raise ValueError("invalid IPv6 authority")
+            IPv6Address(hostname)
+        else:
+            ascii_hostname = hostname.encode("idna").decode("ascii").removesuffix(".")
+            if len(ascii_hostname) > 253 or any(
+                not re.fullmatch(r"[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?", label)
+                for label in ascii_hostname.split(".")
+            ):
+                raise ValueError("invalid hostname")
+    except (ValueError, UnicodeError):
+        raise HTTPException(
+            status_code=500,
+            detail="PUBLIC_BASE_URL must be an absolute HTTP(S) URL without credentials, query, or fragment",
+        ) from None
+    if require_https and parsed.scheme != "https":
+        raise HTTPException(
+            status_code=500,
+            detail="PUBLIC_BASE_URL must use HTTPS in deployed environments",
         )
     return base_url
 
@@ -96,6 +144,8 @@ def _audio_file(file_id: str) -> FilePath:
 @router.post("/process")
 def process_keywords(payload: ProcessInput, request: Request) -> dict[str, str]:
     """Turn keywords into one sentence and store its synthesized MP3."""
+
+    public_base_url = _public_base_url(request)
 
     try:
         sentence = keywords_to_sentence(payload.keywords)
@@ -124,7 +174,7 @@ def process_keywords(payload: ProcessInput, request: Request) -> dict[str, str]:
     except (OSError, TypeError) as exc:
         raise HTTPException(status_code=500, detail="audio storage failed") from exc
 
-    audio_url = f"{_public_base_url(request)}/audio/{file_id}.mp3"
+    audio_url = f"{public_base_url}/audio/{file_id}.mp3"
     return {"sentence": sentence, "audio_url": audio_url}
 
 

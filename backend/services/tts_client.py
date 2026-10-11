@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import os
 from dataclasses import dataclass
 from typing import Any
@@ -16,6 +17,9 @@ except ModuleNotFoundError:
 AUDIO_CONTENT_TYPE = "audio/mpeg"
 DEFAULT_LANGUAGE_CODE = "en-IN"
 DEFAULT_VOICE_GENDER = "NEUTRAL"
+DEFAULT_TIMEOUT_SECONDS = 15.0
+MIN_TIMEOUT_SECONDS = 1.0
+MAX_TIMEOUT_SECONDS = 60.0
 MAX_SENTENCE_LENGTH = 2000
 SUPPORTED_VOICE_GENDERS = frozenset({"MALE", "FEMALE", "NEUTRAL"})
 
@@ -39,6 +43,7 @@ class TTSSettings:
     language_code: str
     voice_name: str | None
     voice_gender: str
+    timeout_seconds: float
     mock_external_services: bool
 
 
@@ -50,6 +55,20 @@ def _settings_from_environment() -> TTSSettings:
     language_code = os.getenv("TTS_LANGUAGE_CODE", DEFAULT_LANGUAGE_CODE).strip()
     voice_name = os.getenv("TTS_VOICE_NAME", "").strip() or None
     voice_gender = os.getenv("TTS_VOICE_GENDER", DEFAULT_VOICE_GENDER).strip().upper()
+    try:
+        timeout_seconds = float(
+            os.getenv("TTS_TIMEOUT_SECONDS", str(DEFAULT_TIMEOUT_SECONDS))
+        )
+    except (TypeError, ValueError):
+        raise TTSConfigurationError(
+            "TTS_TIMEOUT_SECONDS must be a finite number from 1 to 60"
+        ) from None
+    if not math.isfinite(timeout_seconds) or not (
+        MIN_TIMEOUT_SECONDS <= timeout_seconds <= MAX_TIMEOUT_SECONDS
+    ):
+        raise TTSConfigurationError(
+            "TTS_TIMEOUT_SECONDS must be a finite number from 1 to 60"
+        )
 
     if not language_code:
         raise TTSConfigurationError("TTS_LANGUAGE_CODE must not be empty")
@@ -63,6 +82,7 @@ def _settings_from_environment() -> TTSSettings:
         language_code=language_code,
         voice_name=voice_name,
         voice_gender=voice_gender,
+        timeout_seconds=timeout_seconds,
         mock_external_services=_truthy(os.getenv("MOCK_EXTERNAL_SERVICES")),
     )
 
@@ -147,6 +167,8 @@ def text_to_speech(sentence: str) -> bytes:
             input=input_text,
             voice=voice,
             audio_config=audio_config,
+            timeout=settings.timeout_seconds,
+            retry=None,
         )
     except TTSClientError:
         raise

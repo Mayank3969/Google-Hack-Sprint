@@ -9,12 +9,16 @@ value and requires ``GEMINI_API_KEY``.
 
 from __future__ import annotations
 
+import math
 import os
 from dataclasses import dataclass
 from typing import Any
 
 
 DEFAULT_GEMINI_MODEL = "gemini-2.0-flash"
+DEFAULT_TIMEOUT_SECONDS = 15.0
+MIN_TIMEOUT_SECONDS = 1.0
+MAX_TIMEOUT_SECONDS = 60.0
 MAX_KEYWORDS = 20
 MAX_KEYWORD_LENGTH = 64
 
@@ -37,6 +41,7 @@ class GeminiSettings:
 
     model_name: str
     api_key: str | None
+    timeout_seconds: float
     mock_external_services: bool
 
 
@@ -48,10 +53,25 @@ def _truthy(value: str | None) -> bool:
 
 def _settings_from_environment() -> GeminiSettings:
     api_key = os.getenv("GEMINI_API_KEY")
+    try:
+        timeout_seconds = float(
+            os.getenv("GEMINI_TIMEOUT_SECONDS", str(DEFAULT_TIMEOUT_SECONDS))
+        )
+    except (TypeError, ValueError):
+        raise GeminiConfigurationError(
+            "GEMINI_TIMEOUT_SECONDS must be a finite number from 1 to 60"
+        ) from None
+    if not math.isfinite(timeout_seconds) or not (
+        MIN_TIMEOUT_SECONDS <= timeout_seconds <= MAX_TIMEOUT_SECONDS
+    ):
+        raise GeminiConfigurationError(
+            "GEMINI_TIMEOUT_SECONDS must be a finite number from 1 to 60"
+        )
     return GeminiSettings(
         model_name=os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL).strip()
         or DEFAULT_GEMINI_MODEL,
         api_key=api_key.strip() if api_key and api_key.strip() else None,
+        timeout_seconds=timeout_seconds,
         mock_external_services=_truthy(os.getenv("MOCK_EXTERNAL_SERVICES")),
     )
 
@@ -164,7 +184,10 @@ def keywords_to_sentence(keywords: list[str]) -> str:
     prompt = _build_prompt(normalized_keywords)
     try:
         model = _create_real_model(settings.model_name, settings.api_key)
-        response = model.generate_content(prompt)
+        response = model.generate_content(
+            prompt,
+            request_options={"timeout": settings.timeout_seconds, "retry": None},
+        )
     except GeminiClientError:
         raise
     except Exception as exc:

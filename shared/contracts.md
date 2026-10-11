@@ -98,12 +98,14 @@ Canonical request shape:
 Successful response, HTTP 200:
 
 ```json
-{"keywords":["pay","medicine","?"]}
+{"keywords":["pay"]}
 ```
 
-The keyword list is ordered and intended for the backend sentence generator.
-The mobile app may show it as an interim processing state but should not treat
-it as the final natural-language sentence.
+The current M4 model is an isolated-word classifier, so the list contains one
+predicted word. The response remains a list for compatibility with the
+backend sentence-generation contract and future sequence models. The mobile
+app may show the word as an interim processing state but should not treat it as
+the final natural-language sentence.
 
 Invalid examples that must be rejected without crashing the service:
 

@@ -7,11 +7,17 @@ configured, while still making real-provider failures explicit.
 
 from __future__ import annotations
 
+import math
 import os
 import threading
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Mapping
+
+
+DEFAULT_TIMEOUT_SECONDS = 15.0
+MIN_TIMEOUT_SECONDS = 1.0
+MAX_TIMEOUT_SECONDS = 60.0
 
 
 class FirestoreClientError(RuntimeError):
@@ -104,6 +110,26 @@ def _mock_mode_enabled() -> bool:
     return value is not None and value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _timeout_seconds_from_environment() -> float:
+    """Validate the deadline applied to each Firestore RPC, without retries."""
+
+    try:
+        timeout_seconds = float(
+            os.getenv("FIRESTORE_TIMEOUT_SECONDS", str(DEFAULT_TIMEOUT_SECONDS))
+        )
+    except (TypeError, ValueError):
+        raise FirestoreConfigurationError(
+            "FIRESTORE_TIMEOUT_SECONDS must be a finite number from 1 to 60"
+        ) from None
+    if not math.isfinite(timeout_seconds) or not (
+        MIN_TIMEOUT_SECONDS <= timeout_seconds <= MAX_TIMEOUT_SECONDS
+    ):
+        raise FirestoreConfigurationError(
+            "FIRESTORE_TIMEOUT_SECONDS must be a finite number from 1 to 60"
+        )
+    return timeout_seconds
+
+
 # The real provider is not imported or constructed until this getter is used.
 _db: Any | None = None
 _db_lock = threading.RLock()
@@ -157,10 +183,10 @@ def _room_exists(snapshot: Any) -> bool:
     return bool(exists() if callable(exists) else exists)
 
 
-def _get_real_room(db: Any, room_id: str) -> Any:
+def _get_real_room(db: Any, room_id: str, timeout_seconds: float) -> Any:
     try:
         room = db.collection("rooms").document(room_id)
-        snapshot = room.get()
+        snapshot = room.get(timeout=timeout_seconds, retry=None)
     except FirestoreClientError:
         raise
     except Exception as exc:
@@ -246,13 +272,16 @@ def serialize_message(message: Mapping[str, Any]) -> dict[str, str]:
 def create_room() -> str:
     """Create and return a cryptographically non-trivial room identifier."""
 
+    timeout_seconds = _timeout_seconds_from_environment()
     if _mock_mode_enabled():
         return _mock_repository.create_room()
 
     db = _get_database()
     room_id = uuid.uuid4().hex
     try:
-        db.collection("rooms").document(room_id).set({"created_at": _utc_now()})
+        db.collection("rooms").document(room_id).set(
+            {"created_at": _utc_now()}, timeout=timeout_seconds, retry=None
+        )
     except FirestoreClientError:
         raise
     except Exception as exc:
@@ -266,15 +295,18 @@ def add_message(room_id: str, sender: str, text: str) -> None:
     room_id = _require_nonempty_string(room_id, "room_id")
     sender = _require_nonempty_string(sender, "sender")
     text = _require_nonempty_string(text, "text")
+    timeout_seconds = _timeout_seconds_from_environment()
     if _mock_mode_enabled():
         _mock_repository.add_message(room_id, sender, text)
         return
 
     db = _get_database()
-    room = _get_real_room(db, room_id)
+    room = _get_real_room(db, room_id, timeout_seconds)
     try:
         room.collection("messages").add(
-            {"sender": sender, "text": text, "timestamp": _utc_now()}
+            {"sender": sender, "text": text, "timestamp": _utc_now()},
+            timeout=timeout_seconds,
+            retry=None,
         )
     except FirestoreClientError:
         raise
@@ -286,13 +318,16 @@ def get_messages(room_id: str) -> list[dict[str, str]]:
     """Return room messages oldest first with UTC ISO-8601 timestamps."""
 
     room_id = _require_nonempty_string(room_id, "room_id")
+    timeout_seconds = _timeout_seconds_from_environment()
     if _mock_mode_enabled():
         return [serialize_message(message) for message in _mock_repository.get_messages(room_id)]
 
     db = _get_database()
-    room = _get_real_room(db, room_id)
+    room = _get_real_room(db, room_id, timeout_seconds)
     try:
-        documents = room.collection("messages").order_by("timestamp").stream()
+        documents = room.collection("messages").order_by("timestamp").stream(
+            timeout=timeout_seconds, retry=None
+        )
         messages = []
         for document in documents:
             raw_message = document.to_dict()
