@@ -1343,14 +1343,14 @@ conversation data are allowed.
 - [ ] M7 — clean container builds and live `/predict` matches locally
 
 **backend**
-- [ ] M1 — `/health` working locally and in mock mode
+- [x] M1 — `/health` working locally and in mock mode (`backend/.venv`, `pytest`, and local Uvicorn smoke check passed)
 - [ ] M2 — Gemini client tested with mock and real provider paths
 - [ ] M3 — TTS client tested and playable MP3 fixture available
 - [ ] M4 — `/process` returns a phone-reachable audio URL
-- [ ] M5 — STT client tested against a format-verified WAV
-- [ ] M6 — `/transcribe` validates base64 and works through HTTP
-- [ ] M7 — Firestore client tested with fake/emulator and real smoke path
-- [ ] M8 — `/session` endpoints validate sender/text and serialize timestamps
+- [ ] M5 — STT client tested against a format-verified WAV (local fixture, mock path, and validation pass; real Speech-to-Text clip pending)
+- [ ] M6 — `/transcribe` validates base64 and works through HTTP (mock HTTP, invalid-input, size-limit, silence, and provider-error tests pass; real Speech-to-Text request pending)
+- [ ] M7 — Firestore client tested with fake/emulator and real smoke path (in-memory lifecycle, ordering, UTC serialization, and provider-shape tests pass; real Firestore ADC smoke test pending)
+- [ ] M8 — `/session` endpoints validate sender/text and serialize timestamps (mock HTTP lifecycle and error-path tests pass; real Firestore verification pending)
 - [ ] M9 — deployed via Cloud Run, all endpoints re-verified live
 
 **mobile readiness**
