@@ -16,7 +16,7 @@ def main(argv: list[str] | None = None) -> int:
     service_root = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", type=Path, default=service_root / "model" / "dataset.npz")
-    parser.add_argument("--output", type=Path, default=service_root / "model" / "classifier.pkl")
+    parser.add_argument("--output", type=Path, default=service_root / "models" / "classifier.pkl")
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     args = parser.parse_args(argv)
     try:

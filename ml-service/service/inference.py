@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import pickle
 from pathlib import Path
 from typing import Any
@@ -12,7 +13,12 @@ from scripts import dataset_builder
 
 MAX_FRAMES = dataset_builder.MAX_FRAMES
 LANDMARK_SHAPE = dataset_builder.LANDMARK_SHAPE
-DEFAULT_MODEL_PATH = Path(__file__).resolve().parents[1] / "model" / "classifier.pkl"
+DEFAULT_MODEL_PATH = Path(
+    os.environ.get(
+        "MODEL_PATH",
+        Path(__file__).resolve().parents[1] / "models" / "classifier.pkl",
+    )
+)
 
 
 class InferenceError(RuntimeError):
