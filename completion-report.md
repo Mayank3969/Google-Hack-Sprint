@@ -26,9 +26,9 @@ All commands below used the project root `.venv`.
 
 | Check                                                       |                          Result |
 | ----------------------------------------------------------- | ------------------------------: |
-| Root combined suite: backend + ML + integration tests       | **227 passed, 5 skipped** |
-| Backend suite from repository root                          | **181 passed, 1 skipped** |
-| Backend suite from`backend/`                              | **181 passed, 1 skipped** |
+| Root combined suite: backend + ML + integration tests       | **395 passed, 5 skipped** |
+| Backend suite from repository root                          | **349 passed, 1 skipped** |
+| Backend suite from`backend/`                              | **349 passed, 1 skipped** |
 | ML suite from`ml-service/`                                |  **43 passed, 4 skipped** |
 | Cross-service targeted vertical slice                       |              **3 passed** |
 | Python compileall for`backend`, `ml-service`, `tests` |                          Passed |
@@ -39,6 +39,7 @@ Commands used:
 ```powershell
 .venv\Scripts\python.exe -m pytest -q -rs
 .venv\Scripts\python.exe -m pytest -q -rs backend\tests
+.venv\Scripts\python.exe -m backend.verification_gate --json
 cd ml-service
 ..\.venv\Scripts\python.exe -m pytest -q -rs
 cd ..
@@ -177,7 +178,31 @@ team handoff identified only backend module 7 as complete.
 - BE-M6 `/transcribe`;
 - BE-M7 Firestore client with in-memory mock repository;
 - BE-M8 session creation, message writes, and ordered message reads;
-- BE-M9 backend Dockerfile and Cloud Run instructions.
+- BE-M9 bilingual Gemini text result with a strict sentence-completeness decision:
+  accepted input preserves the current bilingual output, while incomplete or
+  unrecognized input returns a record-again decision (mock and controlled
+  provider tests pass; live Gemini pending);
+- BE-M10 labelled English/Hindi TTS segments with configurable language/voice
+  settings, deterministic mock audio, transport cleanup, and controlled failure
+  handling;
+- BE-M11 additive bilingual `/process` response with Hindi subtitles, two
+  retrievable audio URLs, explicit English-then-Hindi playback order, and
+  atomic audio publication/cleanup; incomplete sentences return a normal
+  record-again response without invoking TTS or publishing audio;
+- segmented ML input now keeps every `top_k` candidate meeting the configured
+  `SIGNBRIDGE_RECOGNITION_THRESHOLD` (default `0.50`), applies the threshold to
+  confidence and coverage, preserves segment/candidate order, and removes
+  duplicate labels;
+- BE-M12 deterministic five-scenario bilingual mock regression matrix with
+  provider-isolation checks;
+- BE-M13 privacy-safe pre-deployment verification gate with mock-suite,
+  cross-service loopback, contract-documentation, and optional live provider/
+  HTTP checks;
+- BE-M14 backend Dockerfile and Cloud Run instructions (final deployment module).
+
+BE-M13 local verification is passing. The live portion remains pending until
+credentials and a reachable backend are supplied; the physical-device playback
+check is also still external to this workspace.
 
 Provider calls now have validated finite deadlines and disabled automatic
 retries where supported. Deployed mode requires an explicit HTTPS
@@ -186,7 +211,12 @@ retries where supported. Deployed mode requires an explicit HTTPS
 ### Production work remaining
 
 - real Gemini smoke test with configured API key;
-- real Text-to-Speech smoke test;
+- real English and Hindi Text-to-Speech smoke tests;
+- run `python -m backend.verification_gate --live --base-url <backend-url>`
+  with credentials and a reachable backend;
+- deployed `/process` verification for both labelled audio URLs and
+  English-then-Hindi playback;
+- physical mobile-device speaker/subtitle playback check;
 - real Speech-to-Text smoke test;
 - Firebase/Firestore emulator or real Firestore smoke test;
 - durable audio storage such as Cloud Storage signed URLs;
@@ -244,15 +274,18 @@ provided by `SIGNBRIDGE_MODEL_PATH` or at
 3. Build both Docker images on a Linux-compatible Docker environment.
 4. Deploy both services to Cloud Run with Secret Manager, ADC, IAM, and HTTPS.
 5. Execute live `/health`, `/predict`, `/process`, `/transcribe`, and Firestore
-   checks outside the development machine.
+   checks outside the development machine, including both language outputs and
+   English-then-Hindi audio playback.
 6. Complete the physical mobile-device test: camera permissions, two-hand + face
-   landmarks, audio playback, microphone capture, and room polling.
+   landmarks, bilingual subtitle/audio playback, microphone capture, and room
+   polling.
 7. Replace local ephemeral MP3 storage before relying on multiple Cloud Run
    instances.
 
 ## Bottom line
 
-The code and automated local integration are in place for the backend/ML
-vertical slice. The project is not yet production- or demo-deployment complete
-because the real trained checkpoint, face asset, cloud credentials, Docker/
-Cloud Run execution, and physical mobile smoke test remain outstanding.
+The code, automated local integration, and privacy-safe M13 mock gate are in
+place for the backend/ML vertical slice. The project is not yet production- or
+demo-deployment complete because the real trained checkpoint, face asset, cloud
+credentials, Docker/Cloud Run execution, live provider checks, and physical
+mobile smoke test remain outstanding.

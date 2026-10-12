@@ -27,6 +27,7 @@ import pytest
 import torch
 
 from backend.services.stt_client import MOCK_TRANSCRIPT
+from backend.fixtures.mock_audio import MOCK_MP3_BYTES_EN_IN, MOCK_MP3_BYTES_HI_IN
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -201,19 +202,29 @@ def test_two_process_http_vertical_slice(live_services):
     processed = backend.post("/process", json=predicted.json())
     assert processed.status_code == 200, processed.text
     body = processed.json()
-    assert body["sentence"] == "Pay."
-    audio_url = urlsplit(body["audio_url"])
-    assert audio_url.scheme == "http"
-    assert audio_url.hostname == "127.0.0.1"
-    assert audio_url.port == backend.base_url.port
-    assert audio_url.path.startswith("/audio/") and audio_url.path.endswith(".mp3")
-    # Fetch the absolute URL exactly as the mobile app receives it.
-    audio = backend.get(body["audio_url"])
-    assert audio.status_code == 200
-    assert audio.headers["content-type"].startswith("audio/mpeg")
-    assert audio.content.startswith(b"ID3")
-    assert b"SignBridge mock audio" in audio.content
-    assert audio.content == (audio_dir / Path(audio_url.path).name).read_bytes()
+    assert body["sentence"] == "I want to talk about pay."
+    assert body["hindi_sentence"]
+    assert body["subtitles"] == [
+        {"language": "en-IN", "text": body["sentence"]},
+        {"language": "hi-IN", "text": body["hindi_sentence"]},
+    ]
+    assert body["playback_order"] == ["en-IN", "hi-IN"]
+    assert body["audio_url"] == body["audio_segments"][0]["audio_url"]
+    for segment, expected_audio in zip(
+        body["audio_segments"], (MOCK_MP3_BYTES_EN_IN, MOCK_MP3_BYTES_HI_IN)
+    ):
+        audio_url = urlsplit(segment["audio_url"])
+        assert audio_url.scheme == "http"
+        assert audio_url.hostname == "127.0.0.1"
+        assert audio_url.port == backend.base_url.port
+        assert audio_url.path.startswith("/audio/") and audio_url.path.endswith(".mp3")
+        # Fetch the absolute URL exactly as the mobile app receives it.
+        audio = backend.get(segment["audio_url"])
+        assert audio.status_code == 200
+        assert audio.headers["content-type"].startswith("audio/mpeg")
+        assert audio.content.startswith(b"ID3")
+        assert audio.content == expected_audio
+        assert audio.content == (audio_dir / Path(audio_url.path).name).read_bytes()
 
     created = backend.post("/session/create")
     assert created.status_code == 200, created.text

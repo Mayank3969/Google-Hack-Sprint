@@ -25,6 +25,108 @@ For backend-only tests, run this from `backend/`:
 ..\.venv\Scripts\python.exe -m pytest -q
 ```
 
+The BE-M12 deterministic bilingual mock matrix can be run directly from the
+repository root:
+
+```powershell
+.venv\Scripts\python.exe -m pytest -q backend\tests\test_m12_mock_matrix.py
+```
+
+It covers the five plumbing scenarios (`pay medicine ?`, `hello`, `need water`,
+`doctor tomorrow ?`, and `emergency hospital`). In mock mode it verifies the
+English/Hindi subtitle fields, English-then-Hindi playback order, both
+retrievable `audio/mpeg` segments, repeatability, and that Gemini/Google TTS
+provider setup is never reached. These checks are integration plumbing evidence,
+not translation-quality or model-accuracy evidence.
+
+## BE-M13 verification gate
+
+Run the privacy-safe local pre-deployment gate from the repository root:
+
+```powershell
+.venv\Scripts\python.exe -m backend.verification_gate --json
+```
+
+The default gate runs the complete backend mock suite, the cross-service
+loopback suite, and contract-documentation checks. It captures timings but does
+not print subprocess output, prompts, generated text, credentials, or provider
+exceptions.
+
+After configuring live credentials and starting a reachable backend, add the
+live checks:
+
+```powershell
+$env:MOCK_EXTERNAL_SERVICES = "0"
+$env:GEMINI_API_KEY = "<set outside source control>"
+$env:SIGNBRIDGE_BACKEND_URL = "https://<backend-url>"
+.venv\Scripts\python.exe -m backend.verification_gate --live --json
+```
+
+The live gate checks all five Gemini scenarios, both TTS languages, the
+bilingual `/process` contract and both audio URLs, health, transcription,
+sessions, missing-audio behavior, and documentation alignment. A passing mock
+gate is not a substitute for live provider or physical-device verification.
+
+## Live provider credentials and secret safety
+
+The GitHub-visible template is `backend/.env.example`. Copy it to an ignored
+local file instead of editing the example:
+
+```powershell
+Copy-Item backend\.env.example backend\.env
+```
+
+For a real local smoke test, the backend needs:
+
+| Capability | Credential/configuration | Secret? |
+| --- | --- | --- |
+| Gemini sentence/translation | `GEMINI_API_KEY` from Google AI Studio; `GEMINI_MODEL` selects the model | **Yes** |
+| Text-to-Speech | Google Cloud Application Default Credentials and a project with Cloud Text-to-Speech API enabled | No separate API key; ADC is sensitive local credential state |
+| Speech-to-Text | Google Cloud Application Default Credentials and Cloud Speech-to-Text API enabled | No separate API key; ADC is sensitive local credential state |
+| Firestore | Google Cloud Application Default Credentials and a Firestore database/project | No separate API key; ADC is sensitive local credential state |
+
+Preferred local Google authentication is:
+
+```powershell
+gcloud auth application-default login
+$env:GOOGLE_CLOUD_PROJECT = "your-gcp-project-id"
+```
+
+If ADC is not available, `GOOGLE_APPLICATION_CREDENTIALS` may point to a local
+service-account JSON file, but that file must remain outside Git and outside the
+Docker build context. Do not paste API keys, OAuth tokens, ADC payloads, or
+service-account JSON into chat, source files, tests, logs, or
+`backend/.env.example`.
+
+For live testing set `MOCK_EXTERNAL_SERVICES=0`, set `GEMINI_API_KEY` only in the
+local environment, use an HTTPS `PUBLIC_BASE_URL` for a deployed backend, and
+run the privacy-safe gate:
+
+```powershell
+$env:MOCK_EXTERNAL_SERVICES = "0"
+$env:GEMINI_API_KEY = "<local-secret-not-for-source-control>"
+$env:SIGNBRIDGE_BACKEND_URL = "https://<backend-url>"
+.venv\Scripts\python.exe -m backend.verification_gate --live --json
+```
+
+The gate intentionally reports only check names and timings.
+
+`POST /process` accepts either the legacy `{"keywords": [...]}` body or the ML
+capture-results body with `capture_id` and up to 10 indexed `results`. Results
+are processed in `segment_index` order. `top_k` may contain multiple candidate
+words per segment; the backend keeps every candidate at or above the inclusive
+`SIGNBRIDGE_RECOGNITION_THRESHOLD` (default `0.50`) when segment confidence and
+coverage also pass that threshold, then removes duplicate labels
+case-insensitively. `uncertain` entries are ignored. The two input forms cannot
+be mixed.
+
+Gemini performs a completeness check before translation. If the recognized
+words do not contain enough meaning to form a proper sentence, `/process`
+returns HTTP 200 with `{"status":"record_again","record_again":true}`;
+the backend skips TTS and writes no audio. The mobile client should start a new
+capture. Accepted input keeps the bilingual subtitle and English-then-Hindi
+audio response described above.
+
 With the root virtual environment activated, `python -m pytest -q` works from
 either directory. Backend runtime dependencies live in `requirements.txt`;
 `requirements-dev.txt` adds pytest and the HTTP test client. The Docker image

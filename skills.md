@@ -14,6 +14,22 @@ and, in the opposite direction:
 
 `mobile microphone -> base64 LINEAR16 audio -> backend -> transcript -> mobile session timeline`.
 
+**Current backend scope update:** the next backend increment starts with a few
+already-predicted words, not camera frames. Camera capture, landmark extraction,
+ML/DL training, and word prediction belong to the teammates and are out of scope
+for this backend work. The new target is:
+
+`predicted words -> Gemini -> natural English sentence + Hindi translation -> English/Hindi subtitles + speech (English first, then Hindi)`.
+
+Plan and test this increment one module at a time in section 5, **BE-M9–M13**,
+before final backend deployment in **BE-M14** (formerly BE-M9). BE-M9 now has
+local mock and controlled-provider evidence; BE-M10–M13 remain planned work.
+Existing M1–M8 behavior remains compatible, and BE-M9 defines the additive
+text contract in `shared/contracts.md`. English/Hindi output is now pre-deployment scope;
+older roadmap notes deferring all multilingual output do not apply to this pair.
+The language switch/button, other languages, and multilingual microphone input
+remain future work.
+
 ---
 
 ## Roadmap (new in this revision)
@@ -55,7 +71,7 @@ phase starts.
 | ---------------------------- | -------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
 | 0. Foundations               | before any module work (~½ day) | contract signed off, cloud project ready, tracker live              | Cloud Console, Cloud Storage, Sheets, Billing budgets                                                        | Section 2.1 preflight ticked;`contracts.md` reviewed by mobile dev |
 | 1. Data + model              | Day 1                            | labeled dataset and a ≥80% held-out classifier behind`predict()` | MediaPipe, Colab (optional), Cloud Storage                                                                   | `ML-M1…M5` pass; accuracy evidence recorded                       |
-| 2. Services live             | Day 1 evening → Day 2 morning   | both services deployed and verified from outside the dev machine    | Cloud Run, Cloud Build, Artifact Registry, Secret Manager, Gemini, Speech-to-Text, Text-to-Speech, Firestore | `ML-M6…M7`, `BE-M1…M9`, section 6.1 checklist                  |
+| 2. Services live             | Day 1 evening → Day 2 morning   | both services deployed and verified from outside the dev machine    | Cloud Run, Cloud Build, Artifact Registry, Secret Manager, Gemini, Speech-to-Text, Text-to-Speech, Firestore | `ML-M6…M7`, `BE-M1…M14`, section 6.1 checklist                  |
 | 3. Mobile integration + demo | Day 2                            | physical-device vertical slice                                      | MediaPipe Tasks (mobile), Android Studio / Flutter                                                           | Section 8 final integration test, all 7 checks                       |
 | 4. Hardening                 | week 1 after demo                | no public secrets, durable audio, least privilege, cost guard-rails | Cloud Storage signed URLs, IAM, Vertex AI, Cloud Logging/Monitoring, Cloud Build tests                       | Hardening checklist (R.3, Phase 4)                                   |
 | 5. Model quality             | weeks 2–5                       | larger vocabulary, multiple signers, measurable accuracy            | Colab, TensorFlow/Keras, TFLite, Cloud Storage                                                               | ≥85% on a held-out*signer* the model never trained on             |
@@ -123,7 +139,9 @@ tests pass, fixture exists. If accuracy is below 80%, collect more recordings
 
 1. `ML-M6` (`/predict` with validation) and `ML-M7` (container).
 2. `BE-M4` (`/process`), `BE-M6` (`/transcribe`), `BE-M7` (Firestore client),
-   `BE-M8` (`/session`), `BE-M9` (container).
+   `BE-M8` (`/session`), then `BE-M9…M13` (bilingual contract, Gemini text,
+   English/Hindi speech, subtitle/playback handoff, and verification), and only
+   then `BE-M14` (container and final backend deployment; formerly BE-M9).
 3. Put `GEMINI_API_KEY` in **Secret Manager** and reference it from Cloud Run
    (section 6, step 8). Set `PUBLIC_BASE_URL` to the backend's HTTPS URL.
 4. Deploy both services through Cloud Build triggers with **included-files
@@ -231,10 +249,11 @@ and a documented false-positive rate on non-sign movements.
 2. **Realtime timeline.** Replace polling with Firestore realtime listeners via
    the Firebase mobile SDK, protected by Firestore security rules that only let
    a user read/write rooms they joined. Keep `GET /messages` as a fallback.
-3. **Languages.** Make Speech-to-Text and Text-to-Speech language codes
-   configurable per session (for example `hi-IN` alongside `en-IN`), and have
-   Gemini output the sentence in the session language. Test each language
-   with native speakers before listing it as supported.
+3. **Additional language controls.** English/Hindi sentence text and speech are
+   now required before backend deployment (BE-M9–M13). Later add the language
+   switch/button, per-session language selection, multilingual Speech-to-Text,
+   and additional languages. Test each language with native speakers before
+   listing it as supported.
 4. **Release engineering.** **Firebase App Distribution** for testers,
    **Crashlytics** for crashes, and privacy-safe analytics (screen, error and
    latency events only; no text, audio, or video).
@@ -249,9 +268,10 @@ and a documented false-positive rate on non-sign movements.
 
 ### R.4 What to deliberately postpone
 
-Do not start these before the Phase 3 gate: LSTM/transformer experiments,
-two-hand support, on-device TFLite, Firebase Auth/App Check, multi-language,
-or a fancy UI. Each depends on a stable contract and a trustworthy baseline.
+For this backend increment, do not expand into model experiments, on-device
+TFLite, Firebase Auth/App Check, languages beyond English/Hindi, a language
+switch, or a fancy UI. Camera/ML decisions and implementation remain with the
+teammates; the backend consumes their predicted words through the contract.
 
 ---
 
@@ -941,6 +961,30 @@ gate as unverified rather than claiming M7 deployment passed.
 
 ### 5.0 Backend execution strategy
 
+**Ownership and next implementation order:** keep existing M1–M8 working, then
+implement M9, M10, M11, M12, and M13 separately with their respective tests before
+M14 final deployment. Only the five-case baseline mock test is expanded in this
+planning increment; bilingual service behavior is not implemented yet.
+
+- Input is an ordered, bounded list of predicted words supplied by the client/
+  teammates. Backend work does not open the camera, receive video, run `/predict`,
+  train a model, or require model assets to test sentence generation.
+- Gemini turns the words into a coherent, grammatically correct English
+  sentence, preserving the intended meaning, question, negation, and quantities.
+  It also supplies Hindi keyword text and an equivalent Hindi sentence in
+  Devanagari; it must not invent names, medical advice, or other missing facts.
+- Return both language versions as subtitle-ready text and synthesize both
+  sentences with matching English (`en-IN`) and Hindi (`hi-IN`) voices.
+- Default playback is **English, then Hindi**, once per translation, with no
+  overlap. The backend supplies labelled text/audio and an explicit order;
+  the mobile client displays subtitles and operates its own speaker. It must
+  advance on playback completion, not on a guessed timer.
+- Keep languages separately addressable for a later switch/button, but do not
+  implement that control or language-selection behavior in this increment.
+- Existing STT/session APIs remain compatible. Do not implicitly write two
+  conversation messages, add Hindi STT, or change the ML contract as part of this
+  output-only requirement.
+
 Build the backend as a thin orchestration layer: validate input, call one
 service client, persist or expose the result, and return the contract shape.
 Keep Gemini, Text-to-Speech, Speech-to-Text, and Firestore behind small modules
@@ -1307,7 +1351,179 @@ test with mock Firestore in CI and real Firestore before deployment.
 
 ---
 
-### M9 — Containerize
+### M9 — Bilingual Gemini text contract
+
+**Files:** `services/gemini_client.py`, a translation response model/module, and
+`shared/contracts.md`.
+
+**Outcome:** the backend receives the ordered words produced by the teammate-owned
+ML service and first asks Gemini whether those words are sufficient to form a
+proper sentence without inventing intent. If they are sufficient, it returns
+translated Hindi keyword text plus two meaning-preserving sentence values:
+
+```json
+{
+  "can_complete_sentence": true,
+  "hindi_keywords": ["भुगतान", "दवा", "?"],
+  "english_sentence": "Can I pay for this medicine?",
+  "hindi_sentence": "क्या मैं इस दवा के लिए भुगतान कर सकता हूँ?"
+}
+```
+
+If the signs are unrecognized, incomplete, or insufficient, Gemini returns only:
+
+```json
+{"can_complete_sentence": false}
+```
+
+The backend must treat that as a normal record-again decision, not as a
+provider failure. It returns HTTP 200 with
+`{"status":"record_again","record_again":true}`, skips TTS and audio
+publication, and lets the mobile client start a new capture. The accepted
+response keeps the current bilingual format so the rest of the process is
+unchanged.
+
+Use one bounded Gemini orchestration path with a strict structured response (or
+an equivalently validated schema). Validate the strict boolean decision. When
+true, validate the Hindi keyword list and both strings; when false, reject any
+extra keys. In both cases reject malformed JSON, markdown wrappers, and provider
+metadata.
+The Hindi value must be Devanagari text and preserve the English sentence's
+intent, question/statement form, negation, quantities, and named entities. Do
+not translate or invent camera/landmark data here; the only ML input is the
+keyword list. Keep the existing English `keywords_to_sentence()` behavior
+available during migration, or update its callers in the same module.
+
+**Tests:** mock success for a question and a statement; mock an unrecognized
+keyword and assert the record-again decision; verify the route skips TTS for
+that decision; test malformed accepted/rejected structured output, empty
+English/Hindi output, provider timeout/failure, prompt/input bounds, and a real
+Gemini smoke test when credentials exist. Never assert a single wording for a
+live generative response—assert language, meaning-critical tokens, and the
+schema instead.
+
+---
+
+### M10 — English/Hindi Text-to-Speech segments
+
+**Files:** `services/tts_client.py`, `fixtures/mock_audio.py`, and audio tests.
+
+**Outcome:** synthesize two independently labelled MP3 segments from M9:
+
+```text
+1. language=en-IN, English sentence
+2. language=hi-IN, Hindi sentence
+```
+
+Make `en-IN` and `hi-IN` voice/language names configurable, with separate
+optional voice-name settings and safe defaults. The client must return non-empty
+audio bytes for each language, close real provider transports, and use stable
+`audio/mpeg` content types. Mock mode must return recognizable deterministic
+fixtures for both languages and must not contact Google.
+
+**Tests:** mock both languages, invalid/empty text, invalid voice configuration,
+provider timeout/failure, empty provider audio, cleanup of real client
+transports, and one real English plus Hindi TTS smoke test when ADC exists.
+
+---
+
+### M11 — `/process` bilingual subtitles and ordered playback handoff
+
+**Files:** `routes/process.py`, audio-serving code, `shared/contracts.md`, and
+the endpoint tests.
+
+**Outcome:** extend `POST /process` without making the mobile client know about
+Gemini or Google credentials. Preserve the existing `sentence` and `audio_url`
+fields for the current client while adding an explicit additive response:
+
+For segmented ML input, do not discard all but the highest `top_k` candidate.
+Apply the inclusive `SIGNBRIDGE_RECOGNITION_THRESHOLD` (default `0.50`) to the
+segment confidence, coverage, and each candidate confidence. Keep all passing
+labels in segment/candidate order, remove duplicate labels case-insensitively,
+and use the resulting bounded list as Gemini input. If no candidate survives,
+return the existing record-again response without calling Gemini TTS or writing
+audio.
+
+```json
+{
+  "sentence": "Can I pay for this medicine?",
+  "audio_url": "https://backend.example/audio/<english-id>.mp3",
+  "hindi_keywords": ["भुगतान", "दवा", "?"],
+  "hindi_sentence": "क्या मैं इस दवा के लिए भुगतान कर सकता हूँ?",
+  "subtitles": [
+    {"language": "en-IN", "text": "Can I pay for this medicine?"},
+    {"language": "hi-IN", "text": "क्या मैं इस दवा के लिए भुगतान कर सकता हूँ?"}
+  ],
+  "audio_segments": [
+    {"language": "en-IN", "audio_url": "https://backend.example/audio/<english-id>.mp3"},
+    {"language": "hi-IN", "audio_url": "https://backend.example/audio/<hindi-id>.mp3"}
+  ],
+  "playback_order": ["en-IN", "hi-IN"]
+}
+```
+
+The mobile app displays the two subtitle entries and plays `audio_segments` in
+the declared order, waiting for English playback to finish before Hindi starts.
+The backend must not merge the two languages into an unlabeled response or
+return a partial success: if either sentence or audio segment fails, return a
+controlled `502` and do not publish orphaned URLs. Keep the existing `/audio`
+security, HTTPS, size, and cleanup behavior.
+
+If BE-M9 returns `can_complete_sentence=false`, return the explicit record-again
+response instead of invoking TTS; this is not a `502` and must not create audio.
+
+**Tests:** validate the additive response shape and exact order; fetch both
+audio URLs and verify `audio/mpeg`; assert no partial result after English or
+Hindi TTS failure; check Hindi Unicode survives JSON; test old English-only
+clients still receive `sentence`/`audio_url`; and test invalid keywords remain
+controlled `4xx` responses.
+
+---
+
+### M12 — Local mock sentence and bilingual regression matrix
+
+**Files:** backend mock tests and the local test/run instructions.
+
+Keep the mock deterministic and provider-free, and exercise at least these five
+English sentence types before changing the live provider path:
+
+1. question: `pay medicine ?`
+2. greeting: `hello`
+3. request: `need water`
+4. scheduling question: `doctor tomorrow ?`
+5. urgent statement: `emergency hospital`
+
+For each case, assert a non-empty English sentence, the expected question or
+statement shape, a successful `/process` response, a retrievable MP3, and no
+external provider call. After M9–M11 are implemented, extend the same matrix
+with expected Hindi subtitle/audio entries and English-then-Hindi order. These
+mock cases are plumbing evidence only; they are not translation-quality or
+model-accuracy evidence.
+
+---
+
+### M13 — Backend pre-deployment verification gate
+
+Run the full backend mock suite and the cross-service loopback suite after M9–M12.
+Before deployment, also verify with real credentials where available:
+
+1. Gemini returns validated English and Hindi text for all supported scenario
+   types, with latency recorded but no private prompt/text logged.
+2. English and Hindi TTS each return playable MP3 bytes with configured voices.
+3. `/process` returns both subtitle languages, both labelled audio URLs, and the
+   explicit `["en-IN", "hi-IN"]` playback order.
+4. A failure in either language leaves no partial public result and returns the
+   documented `502` response.
+5. Existing `/transcribe`, `/session`, `/audio`, and health checks still pass.
+6. `shared/contracts.md`, backend README, and the mobile handoff note agree on
+   fields, language codes, URL reachability, and playback ownership.
+
+Do not mark this gate complete from mock tests alone; real Gemini/TTS and a
+physical-device subtitle/audio check remain required before the final deploy.
+
+---
+
+### M14 — Containerize and final backend deployment
 
 **File:** `Dockerfile`
 
@@ -1321,7 +1537,9 @@ ENV PORT=8080
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
 ```
 
-Deployment covered in section 6 below.
+Deployment covered in section 6 below. This is intentionally the final backend
+module: do not deploy the backend until M9–M13 have passed and the mobile-facing
+bilingual contract is frozen.
 
 ---
 
@@ -1355,9 +1573,10 @@ For each Cloud Run revision:
 1. Open `/health` and confirm HTTP 200.
 2. Send the known landmark fixture to the deployed ML URL and compare the
    keyword response with the local container.
-3. Send the keywords to the deployed backend URL, fetch the returned
-   `audio_url` from a network outside the developer machine, and verify it is
-   HTTPS, HTTP 200, `audio/mpeg`, and playable.
+3. Send the keywords to the deployed backend URL, verify both subtitle entries
+   and `["en-IN", "hi-IN"]` playback order, fetch both returned audio segment
+   URLs from a network outside the developer machine, and verify each is HTTPS,
+   HTTP 200, `audio/mpeg`, and playable.
 4. Run `/transcribe` with the permitted test WAV and verify the response.
 5. Create a room, write one message from each sender, and verify the ordered
    ISO timestamps.
@@ -1416,14 +1635,19 @@ conversation data are allowed.
 - [X] M6 — `/transcribe` validates base64 and works through HTTP
 - [~] M7 — Firestore client tested with an in-memory fake; emulator/real smoke path pending
 - [X] M8 — `/session` endpoints validate sender/text and serialize timestamps
-- [~] M9 — Dockerfile and Cloud Run readiness implemented; image/live deployment pending Docker and cloud access
+- [~] M9 — bilingual Gemini text plus strict completeness/record-again decision (accepted and rejected mock/controlled tests pass; live Gemini pending)
+- [ ] M10 — configurable `en-IN`/`hi-IN` TTS segments with cleanup and mock fixtures
+- [~] M11 — `/process` subtitles plus ordered English-then-Hindi audio handoff (record-again path skips TTS/audio; live/device verification pending)
+- [ ] M12 — five-scenario local mock/regression matrix, then bilingual extensions
+- [ ] M13 — pre-deployment bilingual provider, endpoint, contract, and device gate
+- [~] M14 — Dockerfile and final Cloud Run deployment; image/live deployment pending Docker and cloud access
 
 **mobile readiness**
 
 - [ ] Base URLs are configured per build environment; no secrets are present
 - [ ] Camera and microphone permissions have denial/retry states
-- [ ] On-device landmark output matches `(frames, 21, 3)` and MAX_FRAMES=60
-- [ ] Signer flow receives keywords, sentence, and playable MP3
+- [ ] On-device landmark output matches `(frames, 110, 3)` and MAX_FRAMES=60 (ML teammate-owned)
+- [ ] Signer flow receives English/Hindi subtitles and plays English then Hindi MP3 segments
 - [ ] Speaker flow sends 16 kHz mono LINEAR16/WAV and displays transcript
 - [ ] Session flow creates a room, sends both sender types, and polls messages
 - [ ] Physical-device smoke test passes on the selected demo platform
@@ -1452,10 +1676,10 @@ Run this in order using the deployed URLs and a physical device where noted:
 2. Capture a short landmark sample for a known sign with the mobile pipeline →
    POST to live `ml-service /predict` → confirm HTTP 200 and an expected label.
 3. Take the returned keywords → POST to live `backend /process` → confirm the
-   sentence is sensible, the URL is absolute HTTPS, and the downloaded audio
-   actually plays on the phone.
-4. Send the sentence as a `signer` message; poll messages and confirm it is
-   visible with a UTC ISO timestamp.
+   English and Hindi subtitles are sensible, the audio URLs are absolute HTTPS,
+   and both downloaded segments play in English-then-Hindi order on the phone.
+4. Send the English sentence as a `signer` message; poll messages and confirm it
+   is visible with a UTC ISO timestamp.
 5. Record a short 16 kHz mono WAV on the phone → base64-encode → POST to
    `/transcribe` → confirm the text is reasonable and add it as a `speaker`
    message.
@@ -1500,7 +1724,7 @@ from mocked or unavailable integrations.
 | Dataset/recordings  | private Cloud Storage bucket + manifest in Sheets            | Storage lifecycle rules, per-signer consent field                     | Keeps video out of git and shared drives                                                                              |
 | Sentence generation | Gemini (AI Studio key)                                       | Gemini on Vertex AI with ADC                                          | Removes the API key; same prompt and function signature                                                               |
 | Speech → text      | Cloud Speech-to-Text,`en-IN`, LINEAR16 16 kHz              | configurable language per session                                     | Already planned; just parametrize                                                                                     |
-| Text → speech      | Cloud Text-to-Speech,`en-IN`, MP3                          | configurable voice/language per session                               | Already planned                                                                                                       |
+| Text → speech      | Cloud Text-to-Speech,`en-IN` + `hi-IN`, labelled MP3 segments | language switch/button and additional languages later                  | English then Hindi is the pre-deployment default; the mobile client owns playback order                                             |
 | Audio delivery      | `/tmp` on Cloud Run (demo only)                            | Cloud Storage + signed URLs                                           | Fixes cross-instance 404s; contract unchanged                                                                         |
 | Conversation store  | Firestore, polling via backend                               | Firestore realtime listeners + security rules                         | Removes polling and backend hop for reads                                                                             |
 | Hosting             | Cloud Run (two services)                                     | same, with dedicated service accounts and max/min instances           | Scales to zero; cheap for demos                                                                                       |

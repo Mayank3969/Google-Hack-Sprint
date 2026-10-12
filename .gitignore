@@ -17,3 +17,10 @@ ml-service/models/face_landmarker.task
 .env
 .env.*
 !.env.example
+
+# Google/Cloud credentials and private key material.
+**/service-account*.json
+**/*-credentials*.json
+**/credentials*.json
+*.pem
+*.p12

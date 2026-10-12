@@ -125,6 +125,49 @@ Request:
 {"keywords":["pay","medicine","?"]}
 ```
 
+The backend also accepts the segmented ML capture result directly. This is the
+preferred handoff once the ML model returns confidence and coverage metadata:
+
+```json
+{
+  "capture_id": "capture-123",
+  "results": [
+    {
+      "segment_index": 0,
+      "status": "recognized",
+      "keyword": "pay",
+      "confidence": 0.91,
+      "coverage": 0.96,
+      "top_k": [
+        {"label": "pay", "confidence": 0.91},
+        {"label": "medicine", "confidence": 0.82}
+      ]
+    },
+    {
+      "segment_index": 1,
+      "status": "uncertain",
+      "keyword": null,
+      "confidence": 0.42,
+      "coverage": 0.61
+    }
+  ]
+}
+```
+
+`results` accepts at most 10 entries. A result may contain multiple `top_k`
+ candidates, not only its highest-scoring label. The backend applies the
+inclusive `SIGNBRIDGE_RECOGNITION_THRESHOLD` (default `0.50`) to the result's
+`confidence`, result `coverage`, and each candidate's `confidence`. Candidates
+below the threshold are ignored. Candidates at or above the threshold are
+taken in `segment_index` then `top_k` order, and duplicate labels are removed
+case-insensitively while keeping the first occurrence. The final list is still
+bounded by the Gemini keyword limit. If `top_k` is absent, the result's
+`keyword` is treated as its single candidate. `uncertain` entries are ignored.
+Segment indices must be unique, confidence and coverage must be between 0 and 1,
+and at least one recognized keyword or candidate is required. The legacy
+`keywords` form remains supported during migration, but the two forms must not
+be mixed.
+
 Rules:
 
 - `keywords` must be a non-empty array of strings.
@@ -144,6 +187,86 @@ Successful response, HTTP 200:
 `audio_url` must be an absolute HTTPS URL reachable from the mobile device. A
 local path such as `/tmp/example.mp3` is not a valid response. The mobile app
 may stream or download the URL and should expect `Content-Type: audio/mpeg`.
+
+### BE-M9 bilingual text-generation result
+
+Before BE-M11 wires the bilingual result into the public `/process` response,
+the provider-neutral Gemini stage first decides whether the recognized words
+are sufficient to form a proper sentence. For accepted input, the validated
+Gemini object is:
+
+```json
+{
+  "can_complete_sentence": true,
+  "hindi_keywords": ["भुगतान", "दवा", "?"],
+  "english_sentence": "Can I pay for this medicine?",
+  "hindi_sentence": "क्या मैं इस दवा के लिए भुगतान कर सकता हूँ?"
+}
+```
+
+For incomplete or unrecognized input, Gemini must return exactly:
+
+```json
+{"can_complete_sentence": false}
+```
+
+Rules:
+
+- `hindi_keywords` is a non-empty ordered array of strings, with the same
+  maximum item count and per-item bound as the input keywords;
+- Hindi keyword text and `hindi_sentence` contain Devanagari letters; standalone
+  punctuation such as `?` may be preserved;
+- `english_sentence` contains Latin letters and both sentences are non-empty
+  and bounded strings;
+- `can_complete_sentence` is a strict JSON boolean; when it is `true`, the
+  structured result contains exactly the four keys shown above, and when it is
+  `false`, it contains only that decision key;
+- there is no markdown, explanation, or provider metadata; and
+- the Hindi sentence preserves the English sentence's intent, question/statement
+  form, negation, quantities, and named entities.
+
+When the decision is `false`, BE-M11 returns HTTP 200 with
+`{"status":"record_again","record_again":true}` and does not call TTS or
+publish audio. When it is `true`, this is a backend text-generation result, not
+the final mobile response. BE-M10 adds labelled English/Hindi speech segments
+and BE-M11 adds these values to the `/process` subtitle/audio response while
+preserving the existing fields.
+
+### BE-M11 bilingual `/process` response
+
+When BE-M11 is enabled, the existing `sentence` and `audio_url` fields remain
+the English sentence and English MP3 URL. The response adds the Hindi text,
+labelled subtitles, two independently retrievable audio segments, and their
+playback order:
+
+```json
+{
+  "sentence": "Can I pay for this medicine?",
+  "audio_url": "https://backend.example/audio/<english-id>.mp3",
+  "hindi_keywords": ["भुगतान", "दवा", "?"],
+  "hindi_sentence": "क्या मैं इस दवा के लिए भुगतान कर सकता हूँ?",
+  "subtitles": [
+    {"language": "en-IN", "text": "Can I pay for this medicine?"},
+    {"language": "hi-IN", "text": "क्या मैं इस दवा के लिए भुगतान कर सकता हूँ?"}
+  ],
+  "audio_segments": [
+    {"language": "en-IN", "audio_url": "https://backend.example/audio/<english-id>.mp3"},
+    {"language": "hi-IN", "audio_url": "https://backend.example/audio/<hindi-id>.mp3"}
+  ],
+  "playback_order": ["en-IN", "hi-IN"]
+}
+```
+
+The mobile client displays the subtitles and plays the audio segments in the
+declared order, waiting for English playback to finish before Hindi starts.
+Both segment URLs must return non-empty `audio/mpeg` bytes. If bilingual text,
+either TTS segment, or either audio write fails, the backend returns a
+controlled error and does not publish a partial response or orphaned audio
+file.
+
+If `/process` returns `{"status":"record_again","record_again":true}`, the
+mobile client must discard the incomplete attempt, prompt the user to capture
+the sign/phrase again, and must not call or play any audio segment.
 
 ### `GET /audio/{file_id}.mp3` — `backend`
 

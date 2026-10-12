@@ -19,7 +19,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "ml-service"))
 
 from backend.main import app as backend_app  # noqa: E402
-from backend.fixtures.mock_audio import MOCK_MP3_BYTES  # noqa: E402
+from backend.fixtures.mock_audio import (  # noqa: E402
+    MOCK_MP3_BYTES_EN_IN,
+    MOCK_MP3_BYTES_HI_IN,
+)
 from backend.routes import process as process_route  # noqa: E402
 from backend.services import firestore_client, stt_client  # noqa: E402
 from service import app as ml_app_module  # noqa: E402
@@ -54,12 +57,12 @@ def _wav_base64() -> str:
 
 
 @pytest.mark.parametrize(
-    "sign_labels, expected_sentence",
+    "sign_labels, _legacy_expected_sentence",
     [(("pay",), "Pay."), (("pay", "medicine"), "Pay medicine.")],
     ids=["isolated-sign", "client-accumulates-multiple-signs"],
 )
 def test_ml_to_backend_to_session_vertical_slice(
-    monkeypatch, tmp_path, sign_labels, expected_sentence
+    monkeypatch, tmp_path, sign_labels, _legacy_expected_sentence
 ):
     engine = FakeMLEngine(sign_labels)
     monkeypatch.setattr(ml_app_module, "get_engine", lambda: engine)
@@ -94,14 +97,21 @@ def test_ml_to_backend_to_session_vertical_slice(
         processed = backend_client.post("/process", json={"keywords": keywords})
         assert processed.status_code == 200
         process_body = processed.json()
+        expected_sentence = f"I want to talk about {' '.join(sign_labels)}."
         assert process_body["sentence"] == expected_sentence
+        assert process_body["playback_order"] == ["en-IN", "hi-IN"]
+        assert process_body["audio_url"] == process_body["audio_segments"][0]["audio_url"]
         audio_url = urlsplit(process_body["audio_url"])
         assert audio_url.scheme == "http" and audio_url.netloc == "testserver"
         assert audio_url.path.startswith("/audio/") and audio_url.path.endswith(".mp3")
         audio = backend_client.get(process_body["audio_url"])
         assert audio.status_code == 200
         assert audio.headers["content-type"].startswith("audio/mpeg")
-        assert audio.content == MOCK_MP3_BYTES
+        assert audio.content == MOCK_MP3_BYTES_EN_IN
+        hindi_audio = backend_client.get(process_body["audio_segments"][1]["audio_url"])
+        assert hindi_audio.status_code == 200
+        assert hindi_audio.headers["content-type"].startswith("audio/mpeg")
+        assert hindi_audio.content == MOCK_MP3_BYTES_HI_IN
 
         room = backend_client.post("/session/create")
         assert room.status_code == 200
