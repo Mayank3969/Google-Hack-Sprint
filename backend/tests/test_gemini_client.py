@@ -116,3 +116,35 @@ def test_empty_provider_response_is_rejected(monkeypatch: pytest.MonkeyPatch) ->
 
     with pytest.raises(gemini_client.GeminiProviderError, match="usable text"):
         gemini_client.keywords_to_sentence(["hello"])
+
+
+def test_vertex_mode_uses_adc_configuration_and_does_not_require_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeModel:
+        def generate_content(self, prompt: str) -> SimpleNamespace:
+            return SimpleNamespace(text="Hello from Vertex AI.")
+
+    def fake_create_model(model_name: str, api_key: str | None, **kwargs: object) -> FakeModel:
+        captured.update(kwargs)
+        captured["model_name"] = model_name
+        captured["api_key"] = api_key
+        return FakeModel()
+
+    monkeypatch.setenv("MOCK_EXTERNAL_SERVICES", "0")
+    monkeypatch.setenv("GEMINI_USE_VERTEX_AI", "1")
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "fit-heaven-511209-a9")
+    monkeypatch.setenv("GOOGLE_CLOUD_LOCATION", "global")
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setattr(gemini_client, "_create_real_model", fake_create_model)
+
+    assert gemini_client.keywords_to_sentence(["hello"]) == "Hello from Vertex AI."
+    assert captured == {
+        "model_name": gemini_client.DEFAULT_GEMINI_MODEL,
+        "api_key": None,
+        "use_vertex_ai": True,
+        "cloud_project": "fit-heaven-511209-a9",
+        "cloud_location": "global",
+    }

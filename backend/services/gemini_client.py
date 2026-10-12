@@ -14,7 +14,9 @@ from dataclasses import dataclass
 from typing import Any
 
 
-DEFAULT_GEMINI_MODEL = "gemini-2.0-flash"
+# Keep this configurable because model availability changes over time.  This is
+# the current model name returned by the provider for this project at runtime.
+DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"
 MAX_KEYWORDS = 20
 MAX_KEYWORD_LENGTH = 64
 
@@ -38,6 +40,9 @@ class GeminiSettings:
     model_name: str
     api_key: str | None
     mock_external_services: bool
+    use_vertex_ai: bool
+    cloud_project: str | None
+    cloud_location: str
 
 
 def _truthy(value: str | None) -> bool:
@@ -53,6 +58,9 @@ def _settings_from_environment() -> GeminiSettings:
         or DEFAULT_GEMINI_MODEL,
         api_key=api_key.strip() if api_key and api_key.strip() else None,
         mock_external_services=_truthy(os.getenv("MOCK_EXTERNAL_SERVICES")),
+        use_vertex_ai=_truthy(os.getenv("GEMINI_USE_VERTEX_AI")),
+        cloud_project=(os.getenv("GOOGLE_CLOUD_PROJECT") or "").strip() or None,
+        cloud_location=os.getenv("GOOGLE_CLOUD_LOCATION", "global").strip() or "global",
     )
 
 
@@ -104,18 +112,48 @@ def _mock_sentence(keywords: list[str]) -> str:
     return f"{phrase[:1].upper()}{phrase[1:]}."
 
 
-def _create_real_model(model_name: str, api_key: str) -> Any:
-    """Create the SDK model lazily so mock mode has no provider side effects."""
+def _create_real_model(
+    model_name: str,
+    api_key: str | None,
+    *,
+    use_vertex_ai: bool = False,
+    cloud_project: str | None = None,
+    cloud_location: str = "global",
+) -> Any:
+    """Create a small current-SDK adapter lazily.
+
+    The old ``google-generativeai`` package is deprecated.  Keeping the adapter
+    method lets tests and callers retain the existing client boundary while the
+    provider SDK can be replaced without changing route code.
+    """
 
     try:
-        import google.generativeai as genai
+        from google import genai
     except ImportError as exc:  # pragma: no cover - depends on the environment
         raise GeminiConfigurationError(
-            "google-generativeai is required for the real Gemini path"
+            "google-genai is required for the real Gemini path"
         ) from exc
 
-    genai.configure(api_key=api_key)
-    return genai.GenerativeModel(model_name)
+    if use_vertex_ai:
+        if not cloud_project:
+            raise GeminiConfigurationError(
+                "GOOGLE_CLOUD_PROJECT is required for Vertex AI"
+            )
+        client = genai.Client(
+            vertexai=True,
+            project=cloud_project,
+            location=cloud_location,
+        )
+    else:
+        if not api_key:
+            raise GeminiConfigurationError("GEMINI_API_KEY is required for AI Studio")
+        client = genai.Client(api_key=api_key)
+
+    class _ModelAdapter:
+        def generate_content(self, prompt: str) -> Any:
+            return client.models.generate_content(model=model_name, contents=prompt)
+
+    return _ModelAdapter()
 
 
 def _response_text(response: Any) -> str:
@@ -156,14 +194,25 @@ def keywords_to_sentence(keywords: list[str]) -> str:
     if settings.mock_external_services:
         return _mock_sentence(normalized_keywords)
 
-    if not settings.api_key:
+    if not settings.use_vertex_ai and not settings.api_key:
         raise GeminiConfigurationError(
             "GEMINI_API_KEY is required when MOCK_EXTERNAL_SERVICES is disabled"
         )
 
     prompt = _build_prompt(normalized_keywords)
     try:
-        model = _create_real_model(settings.model_name, settings.api_key)
+        if settings.use_vertex_ai:
+            model = _create_real_model(
+                settings.model_name,
+                settings.api_key,
+                use_vertex_ai=True,
+                cloud_project=settings.cloud_project,
+                cloud_location=settings.cloud_location,
+            )
+        else:
+            # Preserve the small two-argument seam used by existing callers and
+            # tests for the AI Studio API-key path.
+            model = _create_real_model(settings.model_name, settings.api_key)
         response = model.generate_content(prompt)
     except GeminiClientError:
         raise
