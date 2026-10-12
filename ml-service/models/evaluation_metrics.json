@@ -1,0 +1,9 @@
+{
+  "model_name": "ISL_1DCNN_Transformer_v2",
+  "test_loss": 0.3044861853122711,
+  "test_accuracy": 0.9166666865348816,
+  "test_macro_f1": 0.889038517038517,
+  "test_weighted_f1": 0.9213458994708995,
+  "num_classes": 50,
+  "num_test_samples": 192
+}
