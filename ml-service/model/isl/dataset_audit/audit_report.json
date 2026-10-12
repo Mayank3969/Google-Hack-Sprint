@@ -1,0 +1,1021 @@
+{
+  "audit_version": "include50-audit-v2",
+  "preprocessing_version": "isl-preprocessing-v2",
+  "source": "E:\\Desktop\\Google Hackathon\\repo-updated\\ml-service\\data\\include50_official_mediapipe_compact68.csv",
+  "reader": "csv.reader (one row at a time)",
+  "memory_policy": "coordinates: O(330); metadata: O(sequences + unique frame IDs)",
+  "chosen_columns": {
+    "sequence": "sequence_id",
+    "label": "sign",
+    "split": "split",
+    "frame": "frame_id"
+  },
+  "schema": {
+    "valid": true,
+    "coordinate_count": 330,
+    "coordinate_order_valid": true,
+    "coordinate_order_policy": "semantic hand_0/hand_1/face descriptors when named; otherwise CSV header order matches the notebook's numeric-column order",
+    "errors": [],
+    "unrecognized_columns": []
+  },
+  "counts": {
+    "rows": 60897,
+    "sequences": 958,
+    "rows_by_class": {
+      "Bank": 1213,
+      "Bird": 2059,
+      "Black": 1050,
+      "Boy": 1284,
+      "Brother": 1275,
+      "Car": 2078,
+      "Cell phone": 791,
+      "Court": 1521,
+      "Cow": 1734,
+      "Death": 1048,
+      "Dog": 1686,
+      "Election": 1015,
+      "Fall": 886,
+      "Fan": 943,
+      "Father": 1196,
+      "Girl": 1168,
+      "Good Morning": 1400,
+      "Hat": 1252,
+      "Hello": 1300,
+      "House": 1259,
+      "I": 1275,
+      "Monday": 779,
+      "Paint": 972,
+      "Pen": 828,
+      "Priest": 907,
+      "Red": 1184,
+      "Shoes": 1435,
+      "Store or Shop": 1162,
+      "Summer": 954,
+      "T-Shirt": 1544,
+      "Teacher": 874,
+      "Thank you": 1345,
+      "Time": 787,
+      "White": 1099,
+      "Window": 1168,
+      "Year": 765,
+      "big large": 1168,
+      "dry": 1302,
+      "good": 1136,
+      "happy": 1113,
+      "hot": 1213,
+      "it": 1226,
+      "long": 1216,
+      "loud": 1167,
+      "new": 1085,
+      "quiet": 1253,
+      "short": 1177,
+      "small little": 1224,
+      "train ticket": 1898,
+      "you (plural)": 1483
+    },
+    "rows_by_split": {
+      "test": 12358,
+      "train": 43764,
+      "val": 4775
+    },
+    "rows_by_class_split": {
+      "Bank": {
+        "test": 364,
+        "train": 746,
+        "val": 103
+      },
+      "Bird": {
+        "train": 1839,
+        "test": 83,
+        "val": 137
+      },
+      "Black": {
+        "test": 251,
+        "train": 751,
+        "val": 48
+      },
+      "Boy": {
+        "test": 243,
+        "train": 912,
+        "val": 129
+      },
+      "Brother": {
+        "train": 822,
+        "test": 332,
+        "val": 121
+      },
+      "Car": {
+        "train": 1428,
+        "test": 436,
+        "val": 214
+      },
+      "Cell phone": {
+        "test": 224,
+        "train": 507,
+        "val": 60
+      },
+      "Court": {
+        "test": 213,
+        "val": 130,
+        "train": 1178
+      },
+      "Cow": {
+        "train": 1315,
+        "test": 310,
+        "val": 109
+      },
+      "Death": {
+        "train": 640,
+        "val": 86,
+        "test": 322
+      },
+      "Dog": {
+        "train": 1007,
+        "test": 612,
+        "val": 67
+      },
+      "Election": {
+        "train": 814,
+        "test": 125,
+        "val": 76
+      },
+      "Fall": {
+        "train": 647,
+        "test": 184,
+        "val": 55
+      },
+      "Fan": {
+        "train": 723,
+        "test": 167,
+        "val": 53
+      },
+      "Father": {
+        "val": 137,
+        "train": 935,
+        "test": 124
+      },
+      "Girl": {
+        "train": 936,
+        "val": 136,
+        "test": 96
+      },
+      "Good Morning": {
+        "train": 972,
+        "test": 277,
+        "val": 151
+      },
+      "Hat": {
+        "train": 870,
+        "test": 342,
+        "val": 40
+      },
+      "Hello": {
+        "test": 464,
+        "train": 784,
+        "val": 52
+      },
+      "House": {
+        "train": 1093,
+        "val": 109,
+        "test": 57
+      },
+      "I": {
+        "train": 991,
+        "val": 120,
+        "test": 164
+      },
+      "Monday": {
+        "train": 612,
+        "val": 54,
+        "test": 113
+      },
+      "Paint": {
+        "train": 699,
+        "test": 207,
+        "val": 66
+      },
+      "Pen": {
+        "train": 645,
+        "val": 62,
+        "test": 121
+      },
+      "Priest": {
+        "train": 795,
+        "test": 49,
+        "val": 63
+      },
+      "Red": {
+        "val": 130,
+        "train": 945,
+        "test": 109
+      },
+      "Shoes": {
+        "train": 966,
+        "test": 310,
+        "val": 159
+      },
+      "Store or Shop": {
+        "test": 208,
+        "train": 846,
+        "val": 108
+      },
+      "Summer": {
+        "train": 681,
+        "test": 215,
+        "val": 58
+      },
+      "T-Shirt": {
+        "train": 1143,
+        "val": 144,
+        "test": 257
+      },
+      "Teacher": {
+        "train": 620,
+        "test": 190,
+        "val": 64
+      },
+      "Thank you": {
+        "train": 826,
+        "val": 75,
+        "test": 444
+      },
+      "Time": {
+        "train": 602,
+        "val": 57,
+        "test": 128
+      },
+      "White": {
+        "train": 947,
+        "test": 56,
+        "val": 96
+      },
+      "Window": {
+        "train": 837,
+        "test": 259,
+        "val": 72
+      },
+      "Year": {
+        "train": 341,
+        "val": 60,
+        "test": 364
+      },
+      "big large": {
+        "train": 808,
+        "test": 233,
+        "val": 127
+      },
+      "dry": {
+        "train": 1191,
+        "val": 111
+      },
+      "good": {
+        "train": 832,
+        "test": 196,
+        "val": 108
+      },
+      "happy": {
+        "train": 862,
+        "val": 79,
+        "test": 172
+      },
+      "hot": {
+        "train": 811,
+        "test": 346,
+        "val": 56
+      },
+      "it": {
+        "train": 679,
+        "test": 473,
+        "val": 74
+      },
+      "long": {
+        "train": 812,
+        "test": 342,
+        "val": 62
+      },
+      "loud": {
+        "train": 691,
+        "test": 356,
+        "val": 120
+      },
+      "new": {
+        "train": 817,
+        "test": 170,
+        "val": 98
+      },
+      "quiet": {
+        "train": 951,
+        "test": 180,
+        "val": 122
+      },
+      "short": {
+        "test": 317,
+        "val": 100,
+        "train": 760
+      },
+      "small little": {
+        "train": 878,
+        "test": 236,
+        "val": 110
+      },
+      "train ticket": {
+        "train": 1104,
+        "test": 715,
+        "val": 79
+      },
+      "you (plural)": {
+        "test": 202,
+        "val": 128,
+        "train": 1153
+      }
+    },
+    "sequences_by_class": {
+      "Bank": 22,
+      "Bird": 25,
+      "Black": 20,
+      "Boy": 21,
+      "Brother": 21,
+      "Car": 20,
+      "Cell phone": 14,
+      "Court": 23,
+      "Cow": 21,
+      "Death": 14,
+      "Dog": 20,
+      "Election": 14,
+      "Fall": 15,
+      "Fan": 15,
+      "Father": 20,
+      "Girl": 20,
+      "Good Morning": 21,
+      "Hat": 20,
+      "Hello": 21,
+      "House": 21,
+      "I": 21,
+      "Monday": 14,
+      "Paint": 15,
+      "Pen": 14,
+      "Priest": 15,
+      "Red": 20,
+      "Shoes": 20,
+      "Store or Shop": 22,
+      "Summer": 14,
+      "T-Shirt": 20,
+      "Teacher": 14,
+      "Thank you": 21,
+      "Time": 15,
+      "White": 20,
+      "Window": 14,
+      "Year": 15,
+      "big large": 21,
+      "dry": 21,
+      "good": 21,
+      "happy": 21,
+      "hot": 21,
+      "it": 21,
+      "long": 21,
+      "loud": 21,
+      "new": 21,
+      "quiet": 21,
+      "short": 22,
+      "small little": 22,
+      "train ticket": 21,
+      "you (plural)": 21
+    },
+    "sequences_by_split": {
+      "test": 192,
+      "train": 689,
+      "val": 77
+    },
+    "sequences_by_class_split": {
+      "Bank": {
+        "test": 6,
+        "train": 14,
+        "val": 2
+      },
+      "Bird": {
+        "train": 22,
+        "test": 1,
+        "val": 2
+      },
+      "Black": {
+        "test": 5,
+        "train": 14,
+        "val": 1
+      },
+      "Boy": {
+        "test": 4,
+        "train": 15,
+        "val": 2
+      },
+      "Brother": {
+        "train": 14,
+        "test": 5,
+        "val": 2
+      },
+      "Car": {
+        "train": 14,
+        "test": 4,
+        "val": 2
+      },
+      "Cell phone": {
+        "test": 4,
+        "train": 9,
+        "val": 1
+      },
+      "Court": {
+        "test": 3,
+        "val": 2,
+        "train": 18
+      },
+      "Cow": {
+        "train": 16,
+        "test": 3,
+        "val": 2
+      },
+      "Death": {
+        "train": 8,
+        "val": 1,
+        "test": 5
+      },
+      "Dog": {
+        "train": 12,
+        "test": 7,
+        "val": 1
+      },
+      "Election": {
+        "train": 11,
+        "test": 2,
+        "val": 1
+      },
+      "Fall": {
+        "train": 11,
+        "test": 3,
+        "val": 1
+      },
+      "Fan": {
+        "train": 11,
+        "test": 3,
+        "val": 1
+      },
+      "Father": {
+        "val": 2,
+        "train": 16,
+        "test": 2
+      },
+      "Girl": {
+        "train": 16,
+        "val": 2,
+        "test": 2
+      },
+      "Good Morning": {
+        "train": 15,
+        "test": 4,
+        "val": 2
+      },
+      "Hat": {
+        "train": 13,
+        "test": 6,
+        "val": 1
+      },
+      "Hello": {
+        "test": 7,
+        "train": 13,
+        "val": 1
+      },
+      "House": {
+        "train": 18,
+        "val": 2,
+        "test": 1
+      },
+      "I": {
+        "train": 16,
+        "val": 2,
+        "test": 3
+      },
+      "Monday": {
+        "train": 11,
+        "val": 1,
+        "test": 2
+      },
+      "Paint": {
+        "train": 11,
+        "test": 3,
+        "val": 1
+      },
+      "Pen": {
+        "train": 11,
+        "val": 1,
+        "test": 2
+      },
+      "Priest": {
+        "train": 13,
+        "test": 1,
+        "val": 1
+      },
+      "Red": {
+        "val": 2,
+        "train": 16,
+        "test": 2
+      },
+      "Shoes": {
+        "train": 14,
+        "test": 4,
+        "val": 2
+      },
+      "Store or Shop": {
+        "test": 4,
+        "train": 16,
+        "val": 2
+      },
+      "Summer": {
+        "train": 10,
+        "test": 3,
+        "val": 1
+      },
+      "T-Shirt": {
+        "train": 15,
+        "val": 2,
+        "test": 3
+      },
+      "Teacher": {
+        "train": 10,
+        "test": 3,
+        "val": 1
+      },
+      "Thank you": {
+        "train": 13,
+        "val": 1,
+        "test": 7
+      },
+      "Time": {
+        "train": 11,
+        "val": 1,
+        "test": 3
+      },
+      "White": {
+        "train": 17,
+        "test": 1,
+        "val": 2
+      },
+      "Window": {
+        "train": 10,
+        "test": 3,
+        "val": 1
+      },
+      "Year": {
+        "train": 7,
+        "val": 1,
+        "test": 7
+      },
+      "big large": {
+        "train": 15,
+        "test": 4,
+        "val": 2
+      },
+      "dry": {
+        "train": 19,
+        "val": 2
+      },
+      "good": {
+        "train": 16,
+        "test": 3,
+        "val": 2
+      },
+      "happy": {
+        "train": 16,
+        "val": 2,
+        "test": 3
+      },
+      "hot": {
+        "train": 14,
+        "test": 6,
+        "val": 1
+      },
+      "it": {
+        "train": 11,
+        "test": 9,
+        "val": 1
+      },
+      "long": {
+        "train": 14,
+        "test": 6,
+        "val": 1
+      },
+      "loud": {
+        "train": 13,
+        "test": 6,
+        "val": 2
+      },
+      "new": {
+        "train": 16,
+        "test": 3,
+        "val": 2
+      },
+      "quiet": {
+        "train": 16,
+        "test": 3,
+        "val": 2
+      },
+      "short": {
+        "test": 6,
+        "val": 2,
+        "train": 14
+      },
+      "small little": {
+        "train": 16,
+        "test": 4,
+        "val": 2
+      },
+      "train ticket": {
+        "train": 12,
+        "test": 8,
+        "val": 1
+      },
+      "you (plural)": {
+        "test": 3,
+        "val": 2,
+        "train": 16
+      }
+    }
+  },
+  "missing": {
+    "cells_by_group": {
+      "hand_0": 734328,
+      "hand_1": 1026144,
+      "face": 2448,
+      "coordinate": 1762920,
+      "entire_frame": 1
+    },
+    "cells_by_axis": {
+      "x": 587640,
+      "y": 587640,
+      "z": 587640
+    },
+    "cells_by_column": {
+      "hand_0_0_x": 11656,
+      "hand_0_0_y": 11656,
+      "hand_0_0_z": 11656,
+      "hand_0_1_x": 11656,
+      "hand_0_1_y": 11656,
+      "hand_0_1_z": 11656,
+      "hand_0_2_x": 11656,
+      "hand_0_2_y": 11656,
+      "hand_0_2_z": 11656,
+      "hand_0_3_x": 11656,
+      "hand_0_3_y": 11656,
+      "hand_0_3_z": 11656,
+      "hand_0_4_x": 11656,
+      "hand_0_4_y": 11656,
+      "hand_0_4_z": 11656,
+      "hand_0_5_x": 11656,
+      "hand_0_5_y": 11656,
+      "hand_0_5_z": 11656,
+      "hand_0_6_x": 11656,
+      "hand_0_6_y": 11656,
+      "hand_0_6_z": 11656,
+      "hand_0_7_x": 11656,
+      "hand_0_7_y": 11656,
+      "hand_0_7_z": 11656,
+      "hand_0_8_x": 11656,
+      "hand_0_8_y": 11656,
+      "hand_0_8_z": 11656,
+      "hand_0_9_x": 11656,
+      "hand_0_9_y": 11656,
+      "hand_0_9_z": 11656,
+      "hand_0_10_x": 11656,
+      "hand_0_10_y": 11656,
+      "hand_0_10_z": 11656,
+      "hand_0_11_x": 11656,
+      "hand_0_11_y": 11656,
+      "hand_0_11_z": 11656,
+      "hand_0_12_x": 11656,
+      "hand_0_12_y": 11656,
+      "hand_0_12_z": 11656,
+      "hand_0_13_x": 11656,
+      "hand_0_13_y": 11656,
+      "hand_0_13_z": 11656,
+      "hand_0_14_x": 11656,
+      "hand_0_14_y": 11656,
+      "hand_0_14_z": 11656,
+      "hand_0_15_x": 11656,
+      "hand_0_15_y": 11656,
+      "hand_0_15_z": 11656,
+      "hand_0_16_x": 11656,
+      "hand_0_16_y": 11656,
+      "hand_0_16_z": 11656,
+      "hand_0_17_x": 11656,
+      "hand_0_17_y": 11656,
+      "hand_0_17_z": 11656,
+      "hand_0_18_x": 11656,
+      "hand_0_18_y": 11656,
+      "hand_0_18_z": 11656,
+      "hand_0_19_x": 11656,
+      "hand_0_19_y": 11656,
+      "hand_0_19_z": 11656,
+      "hand_0_20_x": 11656,
+      "hand_0_20_y": 11656,
+      "hand_0_20_z": 11656,
+      "hand_1_0_x": 16288,
+      "hand_1_0_y": 16288,
+      "hand_1_0_z": 16288,
+      "hand_1_1_x": 16288,
+      "hand_1_1_y": 16288,
+      "hand_1_1_z": 16288,
+      "hand_1_2_x": 16288,
+      "hand_1_2_y": 16288,
+      "hand_1_2_z": 16288,
+      "hand_1_3_x": 16288,
+      "hand_1_3_y": 16288,
+      "hand_1_3_z": 16288,
+      "hand_1_4_x": 16288,
+      "hand_1_4_y": 16288,
+      "hand_1_4_z": 16288,
+      "hand_1_5_x": 16288,
+      "hand_1_5_y": 16288,
+      "hand_1_5_z": 16288,
+      "hand_1_6_x": 16288,
+      "hand_1_6_y": 16288,
+      "hand_1_6_z": 16288,
+      "hand_1_7_x": 16288,
+      "hand_1_7_y": 16288,
+      "hand_1_7_z": 16288,
+      "hand_1_8_x": 16288,
+      "hand_1_8_y": 16288,
+      "hand_1_8_z": 16288,
+      "hand_1_9_x": 16288,
+      "hand_1_9_y": 16288,
+      "hand_1_9_z": 16288,
+      "hand_1_10_x": 16288,
+      "hand_1_10_y": 16288,
+      "hand_1_10_z": 16288,
+      "hand_1_11_x": 16288,
+      "hand_1_11_y": 16288,
+      "hand_1_11_z": 16288,
+      "hand_1_12_x": 16288,
+      "hand_1_12_y": 16288,
+      "hand_1_12_z": 16288,
+      "hand_1_13_x": 16288,
+      "hand_1_13_y": 16288,
+      "hand_1_13_z": 16288,
+      "hand_1_14_x": 16288,
+      "hand_1_14_y": 16288,
+      "hand_1_14_z": 16288,
+      "hand_1_15_x": 16288,
+      "hand_1_15_y": 16288,
+      "hand_1_15_z": 16288,
+      "hand_1_16_x": 16288,
+      "hand_1_16_y": 16288,
+      "hand_1_16_z": 16288,
+      "hand_1_17_x": 16288,
+      "hand_1_17_y": 16288,
+      "hand_1_17_z": 16288,
+      "hand_1_18_x": 16288,
+      "hand_1_18_y": 16288,
+      "hand_1_18_z": 16288,
+      "hand_1_19_x": 16288,
+      "hand_1_19_y": 16288,
+      "hand_1_19_z": 16288,
+      "hand_1_20_x": 16288,
+      "hand_1_20_y": 16288,
+      "hand_1_20_z": 16288,
+      "face_33_x": 12,
+      "face_33_y": 12,
+      "face_33_z": 12,
+      "face_7_x": 12,
+      "face_7_y": 12,
+      "face_7_z": 12,
+      "face_163_x": 12,
+      "face_163_y": 12,
+      "face_163_z": 12,
+      "face_144_x": 12,
+      "face_144_y": 12,
+      "face_144_z": 12,
+      "face_145_x": 12,
+      "face_145_y": 12,
+      "face_145_z": 12,
+      "face_153_x": 12,
+      "face_153_y": 12,
+      "face_153_z": 12,
+      "face_154_x": 12,
+      "face_154_y": 12,
+      "face_154_z": 12,
+      "face_155_x": 12,
+      "face_155_y": 12,
+      "face_155_z": 12,
+      "face_133_x": 12,
+      "face_133_y": 12,
+      "face_133_z": 12,
+      "face_173_x": 12,
+      "face_173_y": 12,
+      "face_173_z": 12,
+      "face_157_x": 12,
+      "face_157_y": 12,
+      "face_157_z": 12,
+      "face_158_x": 12,
+      "face_158_y": 12,
+      "face_158_z": 12,
+      "face_159_x": 12,
+      "face_159_y": 12,
+      "face_159_z": 12,
+      "face_160_x": 12,
+      "face_160_y": 12,
+      "face_160_z": 12,
+      "face_161_x": 12,
+      "face_161_y": 12,
+      "face_161_z": 12,
+      "face_246_x": 12,
+      "face_246_y": 12,
+      "face_246_z": 12,
+      "face_263_x": 12,
+      "face_263_y": 12,
+      "face_263_z": 12,
+      "face_249_x": 12,
+      "face_249_y": 12,
+      "face_249_z": 12,
+      "face_390_x": 12,
+      "face_390_y": 12,
+      "face_390_z": 12,
+      "face_373_x": 12,
+      "face_373_y": 12,
+      "face_373_z": 12,
+      "face_374_x": 12,
+      "face_374_y": 12,
+      "face_374_z": 12,
+      "face_380_x": 12,
+      "face_380_y": 12,
+      "face_380_z": 12,
+      "face_381_x": 12,
+      "face_381_y": 12,
+      "face_381_z": 12,
+      "face_382_x": 12,
+      "face_382_y": 12,
+      "face_382_z": 12,
+      "face_362_x": 12,
+      "face_362_y": 12,
+      "face_362_z": 12,
+      "face_398_x": 12,
+      "face_398_y": 12,
+      "face_398_z": 12,
+      "face_384_x": 12,
+      "face_384_y": 12,
+      "face_384_z": 12,
+      "face_385_x": 12,
+      "face_385_y": 12,
+      "face_385_z": 12,
+      "face_386_x": 12,
+      "face_386_y": 12,
+      "face_386_z": 12,
+      "face_387_x": 12,
+      "face_387_y": 12,
+      "face_387_z": 12,
+      "face_388_x": 12,
+      "face_388_y": 12,
+      "face_388_z": 12,
+      "face_466_x": 12,
+      "face_466_y": 12,
+      "face_466_z": 12,
+      "face_70_x": 12,
+      "face_70_y": 12,
+      "face_70_z": 12,
+      "face_63_x": 12,
+      "face_63_y": 12,
+      "face_63_z": 12,
+      "face_105_x": 12,
+      "face_105_y": 12,
+      "face_105_z": 12,
+      "face_66_x": 12,
+      "face_66_y": 12,
+      "face_66_z": 12,
+      "face_107_x": 12,
+      "face_107_y": 12,
+      "face_107_z": 12,
+      "face_336_x": 12,
+      "face_336_y": 12,
+      "face_336_z": 12,
+      "face_296_x": 12,
+      "face_296_y": 12,
+      "face_296_z": 12,
+      "face_334_x": 12,
+      "face_334_y": 12,
+      "face_334_z": 12,
+      "face_293_x": 12,
+      "face_293_y": 12,
+      "face_293_z": 12,
+      "face_300_x": 12,
+      "face_300_y": 12,
+      "face_300_z": 12,
+      "face_61_x": 12,
+      "face_61_y": 12,
+      "face_61_z": 12,
+      "face_146_x": 12,
+      "face_146_y": 12,
+      "face_146_z": 12,
+      "face_91_x": 12,
+      "face_91_y": 12,
+      "face_91_z": 12,
+      "face_181_x": 12,
+      "face_181_y": 12,
+      "face_181_z": 12,
+      "face_84_x": 12,
+      "face_84_y": 12,
+      "face_84_z": 12,
+      "face_17_x": 12,
+      "face_17_y": 12,
+      "face_17_z": 12,
+      "face_314_x": 12,
+      "face_314_y": 12,
+      "face_314_z": 12,
+      "face_405_x": 12,
+      "face_405_y": 12,
+      "face_405_z": 12,
+      "face_321_x": 12,
+      "face_321_y": 12,
+      "face_321_z": 12,
+      "face_375_x": 12,
+      "face_375_y": 12,
+      "face_375_z": 12,
+      "face_78_x": 12,
+      "face_78_y": 12,
+      "face_78_z": 12,
+      "face_95_x": 12,
+      "face_95_y": 12,
+      "face_95_z": 12,
+      "face_88_x": 12,
+      "face_88_y": 12,
+      "face_88_z": 12,
+      "face_178_x": 12,
+      "face_178_y": 12,
+      "face_178_z": 12,
+      "face_87_x": 12,
+      "face_87_y": 12,
+      "face_87_z": 12,
+      "face_14_x": 12,
+      "face_14_y": 12,
+      "face_14_z": 12,
+      "face_317_x": 12,
+      "face_317_y": 12,
+      "face_317_z": 12,
+      "face_402_x": 12,
+      "face_402_y": 12,
+      "face_402_z": 12,
+      "face_318_x": 12,
+      "face_318_y": 12,
+      "face_318_z": 12,
+      "face_324_x": 12,
+      "face_324_y": 12,
+      "face_324_z": 12,
+      "face_1_x": 12,
+      "face_1_y": 12,
+      "face_1_z": 12,
+      "face_2_x": 12,
+      "face_2_y": 12,
+      "face_2_z": 12,
+      "face_4_x": 12,
+      "face_4_y": 12,
+      "face_4_z": 12,
+      "face_5_x": 12,
+      "face_5_y": 12,
+      "face_5_z": 12,
+      "face_6_x": 12,
+      "face_6_y": 12,
+      "face_6_z": 12,
+      "face_168_x": 12,
+      "face_168_y": 12,
+      "face_168_z": 12
+    },
+    "entirely_missing_block_frames": {
+      "hand_0": 11656,
+      "hand_1": 16288,
+      "face": 12
+    },
+    "sequence_key_rows": 0,
+    "label_rows": 0,
+    "split_rows": 0
+  },
+  "invalid": {
+    "non_numeric_cells": 0,
+    "nonfinite_cells": 0,
+    "malformed_rows": 0
+  },
+  "sequence_issues": {
+    "inconsistent_labels": 0,
+    "inconsistent_splits": 0,
+    "duplicate_frame_rows": 0,
+    "nonmonotonic_frame_transitions": 0,
+    "invalid_or_missing_frame_id_rows": 0,
+    "missing_frame_ids": 0,
+    "sequences_with_frame_gaps": 0,
+    "all_coordinates_missing_sequences": 0
+  },
+  "empty_sequences": {
+    "count": null,
+    "inventory_provided": false,
+    "policy": "zero CSV rows; not inferable without an expected sequence inventory"
+  },
+  "frame_id_policy": "integer IDs; gaps within observed min/max; nonmonotonic means decreasing in source row order",
+  "sequence_count_policy": "inconsistent metadata excluded from the affected sequence count; row counts include all rows",
+  "missing_policy": "blank/NaN/NA/null/None are missing; infinity/non-numeric are invalid; zero is a valid coordinate",
+  "examples": {},
+  "example_limit": 20,
+  "passed": true
+}

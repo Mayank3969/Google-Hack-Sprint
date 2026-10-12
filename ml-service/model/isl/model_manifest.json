@@ -1,0 +1,166 @@
+{
+  "schema_version": 1,
+  "created_at_utc": "2026-10-12T17:42:25.892818+00:00",
+  "expected_input_batch_shape": [
+    null,
+    60,
+    660
+  ],
+  "num_classes": 50,
+  "label_names": [
+    "Bank",
+    "Bird",
+    "Black",
+    "Boy",
+    "Brother",
+    "Car",
+    "Cell phone",
+    "Court",
+    "Cow",
+    "Death",
+    "Dog",
+    "Election",
+    "Fall",
+    "Fan",
+    "Father",
+    "Girl",
+    "Good Morning",
+    "Hat",
+    "Hello",
+    "House",
+    "I",
+    "Monday",
+    "Paint",
+    "Pen",
+    "Priest",
+    "Red",
+    "Shoes",
+    "Store or Shop",
+    "Summer",
+    "T-Shirt",
+    "Teacher",
+    "Thank you",
+    "Time",
+    "White",
+    "Window",
+    "Year",
+    "big large",
+    "dry",
+    "good",
+    "happy",
+    "hot",
+    "it",
+    "long",
+    "loud",
+    "new",
+    "quiet",
+    "short",
+    "small little",
+    "train ticket",
+    "you (plural)"
+  ],
+  "label_maps_valid": true,
+  "artifacts": {
+    "best_isl_model_v2.keras": {
+      "source_path": "E:\\Desktop\\Google Hackathon\\repo-updated\\ml-service\\models\\best_isl_model_v2.keras",
+      "size_bytes": 5419661,
+      "sha256": "dd604c4e577dd3219f8034412d298f1a902cb8194b08c7be09bd7cf6f025fa63",
+      "model_name": "ISL_1DCNN_Transformer_v2",
+      "input_batch_shape": [
+        null,
+        60,
+        660
+      ],
+      "output_probability_width": 50,
+      "output_activation": "softmax",
+      "keras_version": "3.13.2",
+      "tensorflow_version": null,
+      "model_metadata": {
+        "keras_version": "3.13.2",
+        "date_saved": "2026-10-12@14:40:51"
+      },
+      "custom_layer_classes": [
+        "Conv1DTokenBlock",
+        "LandmarkAugmentation",
+        "TransformerEncoderBlock"
+      ],
+      "validation": "serialized ZIP config only; weights not runtime-loaded"
+    },
+    "isl_1dcnn_transformer_v2.keras": {
+      "source_path": "E:\\Desktop\\Google Hackathon\\repo-updated\\ml-service\\models\\isl_1dcnn_transformer_v2.keras",
+      "size_bytes": 5419662,
+      "sha256": "5d3b4b4f76d500f3a9092404adf4700c9b9cd4915f708ce71efd7933cfcb2a37",
+      "model_name": "ISL_1DCNN_Transformer_v2",
+      "input_batch_shape": [
+        null,
+        60,
+        660
+      ],
+      "output_probability_width": 50,
+      "output_activation": "softmax",
+      "keras_version": "3.13.2",
+      "tensorflow_version": null,
+      "model_metadata": {
+        "keras_version": "3.13.2",
+        "date_saved": "2026-10-12@14:57:55"
+      },
+      "custom_layer_classes": [
+        "Conv1DTokenBlock",
+        "LandmarkAugmentation",
+        "TransformerEncoderBlock"
+      ],
+      "validation": "serialized ZIP config only; weights not runtime-loaded"
+    },
+    "label_to_id.json": {
+      "source_path": "E:\\Desktop\\Google Hackathon\\repo-updated\\ml-service\\models\\label_to_id.json",
+      "size_bytes": 767,
+      "sha256": "b9f016a154b89999c80d773f228b7a6aefae218c694c6bb163ff8fd1daffe9b8"
+    },
+    "id_to_label.json": {
+      "source_path": "E:\\Desktop\\Google Hackathon\\repo-updated\\ml-service\\models\\id_to_label.json",
+      "size_bytes": 867,
+      "sha256": "0030c2836fa9c620291fa351799b51b7c6fb8bcc1cec248a1995cbeee819fcf5"
+    },
+    "evaluation_metrics.json": {
+      "source_path": "E:\\Desktop\\Google Hackathon\\repo-updated\\ml-service\\models\\evaluation_metrics.json",
+      "size_bytes": 248,
+      "sha256": "9760a68c321e343fc98497110b1f84d7abdabd363ab6e097ed13c705377e2475"
+    }
+  },
+  "sources": {
+    "notebook": {
+      "source_path": "E:\\Desktop\\Google Hackathon\\repo-updated\\notebooks\\Train_ISL_1DCNN_Transformer_compact68_v2_exact.ipynb",
+      "size_bytes": 203029,
+      "sha256": "4cd9a564072be891e812a9fc3816a20b7e9aa30188d31b10ac517afa68af5b59"
+    },
+    "csv": {
+      "source_path": "E:\\Desktop\\Google Hackathon\\repo-updated\\ml-service\\data\\include50_official_mediapipe_compact68.csv",
+      "size_bytes": 362089338,
+      "sha256": "efab1b8466bf283830ee019f87f37698a3233145d630543755a37795e2462037"
+    }
+  },
+  "historical_evaluation_metrics": {
+    "model_name": "ISL_1DCNN_Transformer_v2",
+    "test_loss": 0.3044861853122711,
+    "test_accuracy": 0.9166666865348816,
+    "test_macro_f1": 0.889038517038517,
+    "test_weighted_f1": 0.9213458994708995,
+    "num_classes": 50,
+    "num_test_samples": 192
+  },
+  "training_environment": {
+    "tensorflow": "2.21.0",
+    "keras": "3.13.2",
+    "source": "notebook execution output"
+  },
+  "runtime_validation": {
+    "attempted": false,
+    "tensorflow_available": false
+  },
+  "limitations": [
+    "Freezing performs static config/label/hash checks only; no model runtime load or inference is attempted.",
+    "Archived evaluation_metrics.json is historical and has not been reproduced by this command.",
+    "A supplied notebook hash identifies that exact file, not proof it trained these model weights.",
+    "TensorFlow is unavailable in this Python runtime; model loading and evaluation cannot be verified here."
+  ]
+}

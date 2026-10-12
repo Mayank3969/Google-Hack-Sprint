@@ -1,0 +1,16 @@
+{
+  "name": "two_frame_sparse_compact68",
+  "raw_shape": [2, 330],
+  "assignments": {
+    "0,0": 1.0,
+    "1,0": 3.0,
+    "1,329": 2.0
+  },
+  "expected_output_shape": [60, 660],
+  "expected_dtype": "float32",
+  "expected_sha256_c_order": "9ca03dcc62ef591f931f2bc07b074b91880facc88c239cfba587a3ec65d48f77",
+  "comparison_tolerance": {
+    "atol": 1e-06,
+    "rtol": 1e-06
+  }
+}

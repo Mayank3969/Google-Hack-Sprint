@@ -1,0 +1,41 @@
+{
+  "version": "isl-preprocessing-v2",
+  "reference_notebook": "notebooks/Train_ISL_1DCNN_Transformer_compact68_v2_exact.ipynb",
+  "reference_notebook_sha256": "4cd9a564072be891e812a9fc3816a20b7e9aa30188d31b10ac517afa68af5b59",
+  "raw_shapes": [
+    [
+      "T",
+      110,
+      3
+    ],
+    [
+      "T",
+      330
+    ]
+  ],
+  "output_shape": [
+    60,
+    660
+  ],
+  "dtype": "float32",
+  "coordinate_order": "hand_0[0:21], hand_1[0:21], compact face[0:68]; xyz per point",
+  "feature_columns_file": "feature_columns.json",
+  "feature_schema_valid": true,
+  "resampling": "np.linspace(0, n_frames - 1, 60).astype(int); duplicates allowed",
+  "normalization": "float32 before resampling; per-feature nanmean over resampled frames; missing values -> 0",
+  "velocity": "np.diff(seq_norm, axis=0, prepend=seq_norm[:1, ...])",
+  "concatenation": "[position, velocity]",
+  "nan_policy": "allowed and mapped to zero after centering",
+  "infinity_policy": "reject",
+  "comparison_tolerance": {
+    "atol": 1e-06,
+    "rtol": 1e-06
+  },
+  "frame_order_policy": "caller sorts by chosen frame key before prepare_model_input; function preserves supplied order",
+  "chosen_columns": {
+    "sequence": "sequence_id",
+    "label": "sign",
+    "split": "split",
+    "frame": "frame_id"
+  }
+}

@@ -1,0 +1,48 @@
+ISL artifact freeze (SHA256; exact source files)
+Created: 2026-10-12T17:42:25.892818+00:00
+
+best_isl_model_v2.keras
+  Source: E:\Desktop\Google Hackathon\repo-updated\ml-service\models\best_isl_model_v2.keras
+  Size: 5419661 bytes
+  SHA256: dd604c4e577dd3219f8034412d298f1a902cb8194b08c7be09bd7cf6f025fa63
+  Input batch shape: [None, 60, 660]
+  Output: 50 softmax probabilities
+  Keras: 3.13.2
+  TensorFlow: not recorded
+isl_1dcnn_transformer_v2.keras
+  Source: E:\Desktop\Google Hackathon\repo-updated\ml-service\models\isl_1dcnn_transformer_v2.keras
+  Size: 5419662 bytes
+  SHA256: 5d3b4b4f76d500f3a9092404adf4700c9b9cd4915f708ce71efd7933cfcb2a37
+  Input batch shape: [None, 60, 660]
+  Output: 50 softmax probabilities
+  Keras: 3.13.2
+  TensorFlow: not recorded
+label_to_id.json
+  Source: E:\Desktop\Google Hackathon\repo-updated\ml-service\models\label_to_id.json
+  Size: 767 bytes
+  SHA256: b9f016a154b89999c80d773f228b7a6aefae218c694c6bb163ff8fd1daffe9b8
+id_to_label.json
+  Source: E:\Desktop\Google Hackathon\repo-updated\ml-service\models\id_to_label.json
+  Size: 867 bytes
+  SHA256: 0030c2836fa9c620291fa351799b51b7c6fb8bcc1cec248a1995cbeee819fcf5
+evaluation_metrics.json
+  Source: E:\Desktop\Google Hackathon\repo-updated\ml-service\models\evaluation_metrics.json
+  Size: 248 bytes
+  SHA256: 9760a68c321e343fc98497110b1f84d7abdabd363ab6e097ed13c705377e2475
+notebook
+  Source: E:\Desktop\Google Hackathon\repo-updated\notebooks\Train_ISL_1DCNN_Transformer_compact68_v2_exact.ipynb
+  Size: 203029 bytes
+  SHA256: 4cd9a564072be891e812a9fc3816a20b7e9aa30188d31b10ac517afa68af5b59
+csv
+  Source: E:\Desktop\Google Hackathon\repo-updated\ml-service\data\include50_official_mediapipe_compact68.csv
+  Size: 362089338 bytes
+  SHA256: efab1b8466bf283830ee019f87f37698a3233145d630543755a37795e2462037
+
+Training environment from notebook output: TensorFlow 2.21.0, Keras 3.13.2
+Label maps: exact IDs 0..49, consistent in both directions
+
+Limitations:
+- Freezing performs static config/label/hash checks only; no model runtime load or inference is attempted.
+- Archived evaluation_metrics.json is historical and has not been reproduced by this command.
+- A supplied notebook hash identifies that exact file, not proof it trained these model weights.
+- TensorFlow is unavailable in this Python runtime; model loading and evaluation cannot be verified here.

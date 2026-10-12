@@ -1,0 +1,8 @@
+# Isolated ISL model audit/evaluation environment.
+# Keep this separate from the PyTorch/FastAPI serving environment: the frozen
+# v2 .keras artifacts were produced with these versions in Colab.
+tensorflow==2.21.0
+keras==3.13.2
+numpy==2.3.5
+pandas
+scikit-learn

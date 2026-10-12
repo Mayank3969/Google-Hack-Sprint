@@ -1,0 +1,27 @@
+{
+  "status": "pending_runtime_evaluation",
+  "reason": "The development interpreter does not have TensorFlow/Keras, so both frozen artifacts could not be loaded and evaluated on the official test sequences.",
+  "candidates": [
+    "best_isl_model_v2.keras",
+    "isl_1dcnn_transformer_v2.keras"
+  ],
+  "required_evaluation": {
+    "input_shape": [60, 660],
+    "labels": "range(50)",
+    "zero_division": 0,
+    "split": "official CSV test sequences only",
+    "metrics": [
+      "accuracy",
+      "macro_f1",
+      "weighted_f1",
+      "per_class_precision",
+      "per_class_recall",
+      "confusion_matrix",
+      "confidence_distribution",
+      "single_sequence_latency"
+    ],
+    "command": "python scripts/evaluate_isl.py --csv PATH_TO_EXACT_COMPACT68_CSV"
+  },
+  "historical_metrics_are_not_file_specific": true,
+  "historical_metrics_source": "models/evaluation_metrics.json"
+}
