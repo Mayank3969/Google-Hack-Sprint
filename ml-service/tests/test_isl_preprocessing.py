@@ -70,6 +70,16 @@ def test_prepare_segment_accepts_json_null_but_rejects_bool_and_numeric_text() -
             prepare_segment(bad)
 
 
+@pytest.mark.parametrize("value", [1e40, 10**400])
+def test_prepare_segment_rejects_values_that_overflow_float32(value) -> None:
+    from service.isl_preprocessing import prepare_segment
+
+    raw = np.ones((4, 110, 3), dtype=object).tolist()
+    raw[0][0][0] = value  # finite Python value, not a valid float32 coordinate
+    with pytest.raises(ValueError, match="finite float32"):
+        prepare_segment(raw)
+
+
 def test_golden_fixture_matches_notebook_contract() -> None:
     fixture_path = Path(__file__).parent / "fixtures" / "isl_preprocessing" / "golden_case.json"
     fixture = json.loads(fixture_path.read_text(encoding="utf-8"))

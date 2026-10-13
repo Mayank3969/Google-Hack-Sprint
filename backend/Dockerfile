@@ -13,7 +13,7 @@ COPY requirements.txt ./requirements.txt
 RUN python -m pip install --upgrade pip \
     && python -m pip install -r requirements.txt
 
-COPY __init__.py main.py ./
+COPY __init__.py main.py cors.py ./
 COPY routes ./routes
 COPY services ./services
 COPY fixtures ./fixtures

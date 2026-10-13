@@ -27,6 +27,7 @@ import pytest
 import torch
 
 from backend.services.stt_client import MOCK_TRANSCRIPT
+from backend.fixtures.mock_audio import MOCK_MP3_BYTES_EN_IN
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -201,7 +202,7 @@ def test_two_process_http_vertical_slice(live_services):
     processed = backend.post("/process", json=predicted.json())
     assert processed.status_code == 200, processed.text
     body = processed.json()
-    assert body["sentence"] == "Pay."
+    assert body["sentence"] == "I want to talk about pay."
     audio_url = urlsplit(body["audio_url"])
     assert audio_url.scheme == "http"
     assert audio_url.hostname == "127.0.0.1"
@@ -212,7 +213,7 @@ def test_two_process_http_vertical_slice(live_services):
     assert audio.status_code == 200
     assert audio.headers["content-type"].startswith("audio/mpeg")
     assert audio.content.startswith(b"ID3")
-    assert b"SignBridge mock audio" in audio.content
+    assert audio.content == MOCK_MP3_BYTES_EN_IN
     assert audio.content == (audio_dir / Path(audio_url.path).name).read_bytes()
 
     created = backend.post("/session/create")

@@ -200,13 +200,25 @@ def _raw_3d(raw_sequence: Any, observed_mask: Any | None) -> tuple[np.ndarray, n
             elif isinstance(item, (bool, np.bool_)) or not isinstance(item, numbers.Real):
                 raise PreprocessingError("raw_sequence must contain real numeric values or null")
             else:
-                normalized.flat[index] = item
+                try:
+                    normalized.flat[index] = item
+                except (OverflowError, TypeError, ValueError):
+                    raise PreprocessingError(
+                        "raw_sequence values must fit finite float32 values"
+                    ) from None
         values = normalized
     elif values.dtype.kind not in "fiu":
         raise PreprocessingError("raw_sequence must contain real numeric values")
     if np.isinf(values).any():
         raise PreprocessingError("raw_sequence must not contain infinite values")
-    raw = values.astype(np.float32, copy=True)
+    with np.errstate(over="ignore", invalid="ignore"):
+        raw = values.astype(np.float32, copy=True)
+    # JSON numbers may be finite at Python/float64 precision but overflow to
+    # infinity when the serving tensor is converted to float32.  Do not turn
+    # that precision loss into detector missingness: the HTTP contract accepts
+    # finite coordinates (or null), and an out-of-range coordinate is invalid.
+    if np.isinf(raw).any():
+        raise PreprocessingError("raw_sequence values must fit finite float32 values")
     observed = np.isfinite(raw)
     if observed_mask is not None:
         mask = np.asarray(observed_mask)

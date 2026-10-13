@@ -41,7 +41,7 @@ app.add_middleware(BodyLimitMiddleware, default_limit=MAX_BODY_BYTES, batch_limi
 allowed_origins = [v.strip() for v in os.getenv("SIGNBRIDGE_ALLOWED_ORIGINS", "").split(",") if v.strip()]
 if allowed_origins:
     app.add_middleware(CORSMiddleware, allow_origins=allowed_origins,
-                       allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
+                       allow_methods=["GET", "POST", "OPTIONS"], allow_headers=["Content-Type"])
 
 
 class LandmarkInput(BaseModel):

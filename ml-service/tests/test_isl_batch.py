@@ -50,6 +50,17 @@ def test_mixed_invalid_buffers_never_expose_partial_keywords(client):
     assert body["results"][1]["status"] == "invalid"
 
 
+def test_float32_overflow_is_an_invalid_slot_not_a_service_failure(client):
+    bad = segment()
+    bad["landmarks"][0][0][0] = 10**400
+    response = client.post("/v2/predict/batch", json={"capture_id": "c1", "segments": [bad]})
+    assert response.status_code == 200
+    body = response.json()
+    assert not body["complete"]
+    assert body["keywords"] == []
+    assert body["results"][0]["status"] == "invalid"
+
+
 def test_batch_and_index_bounds(client):
     for segments in [[], [segment(0), segment(0)], [segment(i) for i in range(11)],
                      [{**segment(), "segment_index": True}], [segment(0, 451)]]:
@@ -58,6 +69,21 @@ def test_batch_and_index_bounds(client):
     response = client.post("/v2/predict/batch", json={"capture_id": "c", "segments": [segment(i) for i in range(10)]})
     assert response.status_code == 200
     assert len(response.json()["results"]) == 10
+
+
+def test_batch_frame_budget_is_aggregate_and_inclusive(client):
+    response = client.post(
+        "/v2/predict/batch",
+        json={"capture_id": "c", "segments": [segment(0, 225), segment(1, 225)]},
+    )
+    assert response.status_code == 200
+    assert len(response.json()["results"]) == 2
+
+    response = client.post(
+        "/v2/predict/batch",
+        json={"capture_id": "c", "segments": [segment(0, 225), segment(1, 226)]},
+    )
+    assert response.status_code == 422
 
 
 def test_duplicate_ids_and_blank_capture_rejected(client):

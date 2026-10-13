@@ -19,7 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "ml-service"))
 
 from backend.main import app as backend_app  # noqa: E402
-from backend.fixtures.mock_audio import MOCK_MP3_BYTES  # noqa: E402
+from backend.fixtures.mock_audio import MOCK_MP3_BYTES_EN_IN  # noqa: E402
 from backend.routes import process as process_route  # noqa: E402
 from backend.services import firestore_client, stt_client  # noqa: E402
 from service import app as ml_app_module  # noqa: E402
@@ -55,7 +55,10 @@ def _wav_base64() -> str:
 
 @pytest.mark.parametrize(
     "sign_labels, expected_sentence",
-    [(("pay",), "Pay."), (("pay", "medicine"), "Pay medicine.")],
+    [
+        (("pay",), "I want to talk about pay."),
+        (("pay", "medicine"), "I want to talk about pay medicine."),
+    ],
     ids=["isolated-sign", "client-accumulates-multiple-signs"],
 )
 def test_ml_to_backend_to_session_vertical_slice(
@@ -101,7 +104,7 @@ def test_ml_to_backend_to_session_vertical_slice(
         audio = backend_client.get(process_body["audio_url"])
         assert audio.status_code == 200
         assert audio.headers["content-type"].startswith("audio/mpeg")
-        assert audio.content == MOCK_MP3_BYTES
+        assert audio.content == MOCK_MP3_BYTES_EN_IN
 
         room = backend_client.post("/session/create")
         assert room.status_code == 200
