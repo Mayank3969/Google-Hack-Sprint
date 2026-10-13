@@ -14,9 +14,9 @@ export interface Adapter {
   health(service: 'backend' | 'ml'): Promise<string>;
 }
 export function validateKeywords(words: string[]) {
-  if (!words.length || words.length > 20 || words.some(w => !w.trim() || w.length > 64)) throw new Error('Enter 1–20 comma-separated keywords, each at most 64 characters.');
+  if (!words.length || words.length > 20 || words.some(w => !w.trim() || w.length > 64)) throw new Error('Enter 1 to 20 comma-separated keywords, each at most 64 characters.');
 }
-function validateText(text: string) { if (!text.trim() || text.length > 2000) throw new Error('A message must contain 1–2,000 characters.'); }
+function validateText(text: string) { if (!text.trim() || text.length > 2000) throw new Error('A message must contain 1 to 2,000 characters.'); }
 const object = (v: unknown): Record<string, unknown> => {
   if (!v || typeof v !== 'object' || Array.isArray(v)) throw new Error('Invalid response from service.');
   return v as Record<string, unknown>;

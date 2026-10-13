@@ -6,10 +6,15 @@ import { pollMessages } from './polling';
 import { SpeechResult } from './SpeechResult';
 import { RecordingPreview } from './RecordingPreview';
 import { SignInput } from './SignInput';
+import { Analytics } from '@vercel/analytics/react';
+import { ConsentBanner, readConsent, type Consent } from './ConsentBanner';
+import { LegalPage, NotFoundPage } from './Legal';
 
 export function App({ config }: { config: Config }) {
   const api = useMemo(() => config.demo ? demoAdapter() : liveAdapter(config), [config]);
-  const [page, setPage] = useState(location.pathname.startsWith('/settings') ? 'settings' : 'workspace');
+  const route = location.pathname;
+  const [page, setPage] = useState(route.startsWith('/settings') ? 'settings' : route === '/' ? 'workspace' : route.slice(1));
+  const [consent, setConsent] = useState<Consent>(() => readConsent());
   const [room, setRoom] = useState(''), [join, setJoin] = useState('');
   const [messages, setMessages] = useState<Message[]>([]), [syncError, setSyncError] = useState('');
   const [paused, setPaused] = useState(false), [busy, setBusy] = useState('');
@@ -27,7 +32,7 @@ export function App({ config }: { config: Config }) {
   function clearResult() { processGeneration.current++; setResult(null); window.speechSynthesis?.cancel(); }
   function cancelRecording() { generation.current++; microphone.current?.dispose(); microphone.current = null; setMicState('idle'); }
   useEffect(() => {
-    const change = () => { cancelRecording(); clearResult(); setCaptureReset(n => n + 1); setPage(location.pathname.startsWith('/settings') ? 'settings' : 'workspace'); };
+     const change = () => { cancelRecording(); clearResult(); setCaptureReset(n => n + 1); const path = location.pathname; setPage(path.startsWith('/settings') ? 'settings' : path === '/' ? 'workspace' : path.slice(1)); };
     window.addEventListener('popstate', change);
     return () => window.removeEventListener('popstate', change);
   }, []);
@@ -38,7 +43,17 @@ export function App({ config }: { config: Config }) {
   }, [api, room, paused, page]);
   useEffect(() => () => { generation.current++; processGeneration.current++; microphone.current?.dispose(); microphone.current = null; window.speechSynthesis?.cancel(); }, []);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
-  function navigate(target: string) { cancelRecording(); clearResult(); setCaptureReset(n => n + 1); history.pushState({}, '', target === 'settings' ? '/settings' : '/'); setPage(target); }
+  useEffect(() => {
+    const legal = page === 'privacy' || page === 'terms';
+    const title = page === 'workspace' ? 'Workspace' : page === 'settings' ? 'Settings and Help' : page === 'privacy' ? 'Privacy Policy' : page === 'terms' ? 'Terms and Conditions' : 'Page not found';
+    document.title = `${title} | SignBridge`;
+    const description = legal ? `SignBridge ${title.toLowerCase()}.` : 'SignBridge is a shared workspace for reviewing sign, speech, and text conversation.';
+    const setMeta = (name: string, content: string, property = false) => { const selector = property ? `meta[property="${name}"]` : `meta[name="${name}"]`; let node = document.head.querySelector<HTMLMetaElement>(selector); if (!node) { node = document.createElement('meta'); node.setAttribute(property ? 'property' : 'name', name); document.head.appendChild(node); } node.content = content; };
+    const siteUrl = config.siteUrl || location.origin;
+    setMeta('description', description); setMeta('og:title', `${title} | SignBridge`, true); setMeta('og:description', description, true); setMeta('og:url', `${siteUrl}${location.pathname}`, true); setMeta('og:image', `${siteUrl}/og-signbridge.svg`, true); setMeta('twitter:card', 'summary_large_image'); setMeta('twitter:title', `${title} | SignBridge`); setMeta('twitter:description', description); setMeta('twitter:image', `${siteUrl}/og-signbridge.svg`);
+    let canonical = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]'); if (!canonical) { canonical = document.createElement('link'); canonical.rel = 'canonical'; document.head.appendChild(canonical); } canonical.href = `${siteUrl}${location.pathname}`;
+  }, [page, config.siteUrl]);
+  function navigate(target: string) { cancelRecording(); clearResult(); setCaptureReset(n => n + 1); const path = target === 'settings' ? '/settings' : target === 'privacy' ? '/privacy' : target === 'terms' ? '/terms' : '/'; history.pushState({}, '', path); setPage(target); }
   async function run(name: string, task: () => Promise<void>) {
     if (working.current) return;
     working.current = true; setBusy(name); setError(''); setNotice('');
@@ -94,6 +109,8 @@ export function App({ config }: { config: Config }) {
   function changeMode(next: 'sign' | 'speech') { cancelRecording(); clearResult(); setMode(next); }
   function useDraft(text: string) { setDraft(text.slice(0, 2000)); setSender('signer'); setNotice('Sentence copied to your editable draft.'); }
 
+  const legal = page === 'privacy' || page === 'terms';
+  const unknown = !['workspace', 'settings', 'privacy', 'terms'].includes(page);
   return <>
     <a className="skip" href="#main">Skip to main content</a>
     <header className="topbar">
@@ -101,21 +118,21 @@ export function App({ config }: { config: Config }) {
       <span className={`badge ${config.demo ? 'terra' : ''}`}>{config.demo ? 'Demo · local session' : 'Live endpoints'}</span>
       <nav aria-label="Main">
         <a href="/" aria-current={page === 'workspace' ? 'page' : undefined} onClick={e => { e.preventDefault(); navigate('workspace'); }}>Workspace</a>
-        <a href="/settings" aria-current={page === 'settings' ? 'page' : undefined} onClick={e => { e.preventDefault(); navigate('settings'); }}>Settings & Help</a>
+          <a href="/settings" aria-current={page === 'settings' ? 'page' : undefined} onClick={e => { e.preventDefault(); navigate('settings'); }}>Settings & Help</a>
       </nav>
     </header>
     <main id="main">
-      <div className="heading">
+       {legal || unknown ? <>{legal ? <LegalPage kind={page as 'privacy' | 'terms'} /> : <NotFoundPage />}</> : <><div className="heading">
         <div><span className="eyebrow">A LITTLE TECHNOLOGY. MORE CONNECTION.</span><h1>{page === 'workspace' ? 'A shared space for conversation.' : 'Configuration & trust.'}</h1><p>{page === 'workspace' ? 'Your words, your pace. Meet in the middle.' : 'Understand your connections, permissions, and data.'}</p></div>
         <div className="room-label"><span className="eyebrow">CURRENT ROOM</span><strong>{room || 'Not connected'}</strong>{room && <button className="compact" onClick={() => void run('copy', async () => { await navigator.clipboard.writeText(room); setNotice('Room ID copied.'); })}>Copy room ID</button>}</div>
-      </div>
+       </div>
       {config.demo && <div className="demo-note"><strong>Demonstration mode</strong><span>Rooms and messages stay in this tab until reload. Generated phrases simply join your keywords; no sign recognition or cloud transcription.</span></div>}
       {error && <div className="error" role="alert">{error}</div>}
       <div className="notice" role="status">{notice}</div>
       {page === 'workspace' ? <>
         <section className="session-bar" aria-label="Connect to a room">
           <button disabled={!!busy} onClick={() => void enter(true)}>{busy === 'room' ? 'Connecting…' : '＋ Create room'}</button><span className="muted">or join a conversation</span>
-          <form onSubmit={e => { e.preventDefault(); void enter(false); }}><label className="sr-only" htmlFor="room-id">Room ID</label><input id="room-id" value={join} onChange={e => setJoin(e.target.value)} placeholder="Enter room ID" maxLength={128}/><button className="secondary" disabled={!!busy || !join.trim()}>Join room →</button></form>
+           <form onSubmit={e => { e.preventDefault(); void enter(false); }}><label className="sr-only" htmlFor="room-id">Room ID</label><input id="room-id" value={join} onChange={e => setJoin(e.target.value)} placeholder="Enter room ID" maxLength={128} required/><button className="secondary" disabled={!!busy || !join.trim()}>Join room →</button></form>
         </section>
         <div className="workspace-grid">
           <section className="input-panel">
@@ -129,7 +146,7 @@ export function App({ config }: { config: Config }) {
               <div className="keyword-panel">
                 <span className="eyebrow terra-text">MANUAL KEYWORDS → SPOKEN WORDS</span>
                 <label htmlFor="keywords">What would you like to say?</label>
-                <input ref={keywordInput} id="keywords" placeholder="hello, good, morning" value={keywords} onChange={e => setKeywords(e.target.value)} aria-describedby="keyword-help"/>
+                 <input ref={keywordInput} id="keywords" placeholder="hello, good, morning" value={keywords} onChange={e => setKeywords(e.target.value)} aria-describedby="keyword-help" required/>
                 <small id="keyword-help">Separate with commas · up to 20 keywords · 64 characters each</small>
                 <button disabled={!!busy || !keywords.trim()} onClick={() => void generate()}>{busy === 'process' ? 'Preparing…' : 'Generate sentence →'}</button>
                 {result?.status === 'record_again' && <div className="generated" role="status">
@@ -152,15 +169,15 @@ export function App({ config }: { config: Config }) {
           <section className="conversation">
             <div className="section-title"><div><span className="eyebrow">02 / SHARED WORDS</span><h2>Conversation timeline</h2></div><span className="badge">{messages.length} messages</span></div>
             <div className="sync-bar"><span>{!room ? 'Connect to begin' : paused ? 'Sync paused' : 'Polls every 2s while visible'}</span><button className="compact" disabled={!room} onClick={() => setPaused(!paused)}>{paused ? 'Resume' : 'Pause'}</button></div>
-            {syncError && <p role="alert" className="error">{syncError} Next sync will retry.</p>}
+             {syncError && <p role="alert" className="error">{syncError} <button className="compact" onClick={() => void poll.current?.refresh()}>Retry sync</button></p>}
             <div className="timeline" role="log" aria-label="Conversation messages" aria-live="polite" aria-relevant="additions text">
-              {messages.length ? messages.map((message, index) => <article className={`message ${message.sender}`} key={`${index}-${message.timestamp}`}>
+               {messages.length ? messages.map((message, index) => <article className={`message ${message.sender}`} key={`${index}-${message.timestamp}`}>
                 <div><strong>{message.sender === 'signer' ? 'Signer' : 'Speaker'}</strong><time dateTime={message.timestamp}>{Number.isNaN(Date.parse(message.timestamp)) ? message.timestamp : new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time></div><p>{message.text}</p>
-              </article>) : <div className="empty"><span aria-hidden="true">〰</span><h3>Room for every word.</h3><p>{room ? 'Your conversation will appear here. Send the first message when you’re ready.' : 'Create a room or enter a shared room ID to begin your conversation.'}</p></div>}
+               </article>) : <div className="empty"><h3>Room for every word.</h3><p>{room ? 'Your conversation will appear here. Send the first message when you’re ready.' : 'Create a room or enter a shared room ID to begin your conversation.'}</p></div>}
             </div>
             <form className="composer" onSubmit={e => { e.preventDefault(); void send(); }}>
               <div className="composer-label"><label htmlFor="draft">Your message</label><label className="sender-select">Send as <select aria-label="Message sender" value={sender} onChange={e => setSender(e.target.value as Sender)}><option value="speaker">Speaker</option><option value="signer">Signer</option></select></label></div>
-              <textarea id="draft" rows={4} maxLength={2000} value={draft} onChange={e => setDraft(e.target.value)} placeholder="Type freely, or edit a generated sentence or transcript…"/>
+               <textarea id="draft" rows={4} maxLength={2000} value={draft} onChange={e => setDraft(e.target.value)} placeholder="Type freely, or edit a generated sentence or transcript..." required/>
               <div className="composer-actions"><small>{draft.length}/2,000 · Review before sending</small><button disabled={!room || !!busy || !draft.trim()}>{busy === 'send' ? 'Sending…' : 'Send message →'}</button></div>
             </form>
           </section>
@@ -181,8 +198,9 @@ export function App({ config }: { config: Config }) {
           <p className="caption">An HTTP health response indicates reachability only; it does not verify model readiness.</p>
         </section>
         <section className="card"><span className="eyebrow">DATA FLOW & BOUNDARIES</span><h2>04. Privacy, in plain words</h2><p>{config.demo ? 'Demo conversations exist only in this tab’s memory and disappear on reload. Recordings are kept in memory for local playback; no backend calls are made.' : 'Messages, keywords, and recordings are sent to the configured backend. Storage, provider usage, retention, and room access are managed by that deployment.'}</p><p>Generated text is editable before sending. Audio only plays when you choose it. Browser demo voices may use an online speech service. A room ID is not authentication.</p></section>
-      </div>}
+       </div>}</>}
     </main>
-    <footer><span>SignBridge <span className="muted">/ A bridge, built together.</span></span><span>Review your words. Keep the conversation yours.</span></footer>
-  </>;
+     <footer><span>SignBridge <span className="muted">/ A bridge for conversation.</span></span><span><a href="/privacy" onClick={e => { e.preventDefault(); navigate('privacy'); }}>Privacy</a> <a href="/terms" onClick={e => { e.preventDefault(); navigate('terms'); }}>Terms</a> <a href="/" onClick={e => { e.preventDefault(); navigate('workspace'); }}>Open workspace</a></span></footer>
+     <ConsentBanner onChange={setConsent}/>{consent === 'accepted' && <Analytics />}
+   </>;
 }

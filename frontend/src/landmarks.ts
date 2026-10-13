@@ -19,6 +19,6 @@ export function featureFrame(hands: { landmarks: Landmark[][]; handedness: { cat
   return output;
 }
 export function validateLandmarks(frames: Frame[]) {
-  if (!Array.isArray(frames) || frames.length < 1 || frames.length > 60 || frames.some(frame => !Array.isArray(frame) || frame.length !== 110 || frame.some(p => !Array.isArray(p) || p.length !== 3 || !p.every(v => typeof v === 'number' && Number.isFinite(v))))) throw new Error('Capture must contain 1–60 frames of 110 finite [x,y,z] points. Recapture.');
+  if (!Array.isArray(frames) || frames.length < 1 || frames.length > 60 || frames.some(frame => !Array.isArray(frame) || frame.length !== 110 || frame.some(p => !Array.isArray(p) || p.length !== 3 || !p.every(v => typeof v === 'number' && Number.isFinite(v))))) throw new Error('Capture must contain 1 to 60 frames of 110 finite [x,y,z] points. Recapture.');
   if (!frames.some(frame => frame.slice(0, 42).some(p => p.some(v => v !== 0)))) throw new Error('No hands detected. Keep your hands in view and recapture.');
 }

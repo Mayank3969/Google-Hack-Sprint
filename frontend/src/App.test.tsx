@@ -8,7 +8,7 @@ import { Microphone } from './audio';
 vi.mock('./audio', () => ({ Microphone: vi.fn(function () {
   return { start: vi.fn(async () => {}), finish: vi.fn(() => new ArrayBuffer(44)), dispose: vi.fn() };
 }), toBase64: vi.fn(() => 'WAV') }));
-const config = { demo: false, backend: 'https://api.example.com', ml: 'https://ml.example.com' };
+const config = { demo: false, backend: 'https://api.example.com', ml: 'https://ml.example.com', siteUrl: 'https://signbridge.example' };
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status });
 let fetcher: ReturnType<typeof vi.fn<typeof fetch>>;
 let audios: HTMLAudioElement[];

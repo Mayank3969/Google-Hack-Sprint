@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://signbridge.example/sitemap.xml
