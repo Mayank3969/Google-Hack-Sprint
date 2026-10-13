@@ -8,24 +8,33 @@ by BE-M8.
 from fastapi import FastAPI
 
 if __package__:
+    from .cors import configure_cors
     from .routes import process, session, transcribe
 else:  # Supports ``uvicorn main:app`` from the backend directory.
+    from cors import configure_cors
     from routes import process, session, transcribe
 
 
-app = FastAPI(
-    title="SignBridge Backend",
-    version="0.1.0",
-    description="Backend integration service for the SignBridge demo.",
-)
-
-app.include_router(process.router)
-app.include_router(transcribe.router)
-app.include_router(session.router)
-
-
-@app.get("/health", tags=["system"])
 def health() -> dict[str, str]:
     """Return a cheap liveness response without calling any external service."""
 
     return {"status": "ok"}
+
+
+def create_app() -> FastAPI:
+    """Build an application using the process environment at startup."""
+
+    application = FastAPI(
+        title="SignBridge Backend",
+        version="0.1.0",
+        description="Backend integration service for the SignBridge demo.",
+    )
+    configure_cors(application)
+    application.include_router(process.router)
+    application.include_router(transcribe.router)
+    application.include_router(session.router)
+    application.get("/health", tags=["system"])(health)
+    return application
+
+
+app = create_app()

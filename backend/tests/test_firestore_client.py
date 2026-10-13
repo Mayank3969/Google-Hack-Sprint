@@ -14,6 +14,7 @@ except ModuleNotFoundError:
 @pytest.fixture(autouse=True)
 def mock_firestore(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MOCK_EXTERNAL_SERVICES", "1")
+    monkeypatch.delenv("FIRESTORE_TIMEOUT_SECONDS", raising=False)
     client.reset_mock_repository()
 
 
@@ -109,37 +110,43 @@ def test_serialize_message_accepts_provider_timestamp_method() -> None:
 
 
 class FakeDocument:
-    def __init__(self, room_id: str, rooms: dict[str, bool], messages: dict[str, list[dict[str, object]]]) -> None:
+    def __init__(self, room_id: str, rooms: dict[str, bool], messages: dict[str, list[dict[str, object]]], calls: list) -> None:
         self.room_id = room_id
         self.rooms = rooms
         self.messages = messages
         self.created: dict[str, object] | None = None
+        self.calls = calls
 
-    def set(self, values: dict[str, object]) -> None:
+    def set(self, values: dict[str, object], **kwargs) -> None:
+        self.calls.append(("set", kwargs))
         self.rooms[self.room_id] = True
         self.created = values
         self.messages.setdefault(self.room_id, [])
 
-    def get(self) -> SimpleNamespace:
+    def get(self, **kwargs) -> SimpleNamespace:
+        self.calls.append(("get", kwargs))
         return SimpleNamespace(exists=self.rooms.get(self.room_id, False))
 
     def collection(self, name: str) -> "FakeMessageCollection":
         assert name == "messages"
-        return FakeMessageCollection(self.messages.setdefault(self.room_id, []))
+        return FakeMessageCollection(self.messages.setdefault(self.room_id, []), self.calls)
 
 
 class FakeMessageCollection:
-    def __init__(self, messages: list[dict[str, object]]) -> None:
+    def __init__(self, messages: list[dict[str, object]], calls: list) -> None:
         self.messages = messages
+        self.calls = calls
 
-    def add(self, values: dict[str, object]) -> None:
+    def add(self, values: dict[str, object], **kwargs) -> None:
+        self.calls.append(("add", kwargs))
         self.messages.append(values)
 
     def order_by(self, field: str) -> "FakeMessageCollection":
         assert field == "timestamp"
         return self
 
-    def stream(self) -> list[SimpleNamespace]:
+    def stream(self, **kwargs) -> list[SimpleNamespace]:
+        self.calls.append(("stream", kwargs))
         ordered = sorted(self.messages, key=lambda message: message["timestamp"])
         return [SimpleNamespace(to_dict=lambda message=message: message) for message in ordered]
 
@@ -148,19 +155,21 @@ class FakeFirestoreDatabase:
     def __init__(self) -> None:
         self.rooms: dict[str, bool] = {}
         self.messages: dict[str, list[dict[str, object]]] = {}
+        self.calls: list = []
 
     def collection(self, name: str) -> "FakeRoomCollection":
         assert name == "rooms"
-        return FakeRoomCollection(self.rooms, self.messages)
+        return FakeRoomCollection(self.rooms, self.messages, self.calls)
 
 
 class FakeRoomCollection:
-    def __init__(self, rooms: dict[str, bool], messages: dict[str, list[dict[str, object]]]) -> None:
+    def __init__(self, rooms: dict[str, bool], messages: dict[str, list[dict[str, object]]], calls: list) -> None:
         self.rooms = rooms
         self.messages = messages
+        self.calls = calls
 
     def document(self, room_id: str) -> FakeDocument:
-        return FakeDocument(room_id, self.rooms, self.messages)
+        return FakeDocument(room_id, self.rooms, self.messages, self.calls)
 
 
 def test_real_firestore_shape_is_lazy_and_serializes_results(
@@ -168,6 +177,7 @@ def test_real_firestore_shape_is_lazy_and_serializes_results(
 ) -> None:
     database = FakeFirestoreDatabase()
     monkeypatch.setenv("MOCK_EXTERNAL_SERVICES", "0")
+    monkeypatch.setenv("FIRESTORE_TIMEOUT_SECONDS", "12.5")
     monkeypatch.setattr(client, "_db", None)
     monkeypatch.setattr(client, "_get_database", lambda: database)
 
@@ -179,6 +189,10 @@ def test_real_firestore_shape_is_lazy_and_serializes_results(
     assert messages[0]["sender"] == "signer"
     assert messages[0]["text"] == "hello"
     assert messages[0]["timestamp"].endswith("Z")
+    assert database.calls == [
+        (method, {"timeout": 12.5, "retry": None})
+        for method in ("set", "get", "add", "get", "stream")
+    ]
 
 
 def test_real_firestore_missing_room_is_controlled(
@@ -205,3 +219,53 @@ def test_real_firestore_provider_failure_is_wrapped(
         client.create_room()
 
     assert str(error.value) == "Firestore provider operation failed"
+
+
+@pytest.mark.parametrize("value", ["", " ", "bad", "nan", "inf", "-inf", "0", "-1", "0.5", "60.1"])
+@pytest.mark.parametrize("operation", ["create", "add", "get"])
+def test_invalid_timeout_fails_before_provider_setup(monkeypatch, value, operation) -> None:
+    monkeypatch.setenv("MOCK_EXTERNAL_SERVICES", "0")
+    monkeypatch.setenv("FIRESTORE_TIMEOUT_SECONDS", value)
+    monkeypatch.setattr(
+        client, "_get_database",
+        lambda: pytest.fail("invalid settings must not initialize the provider"),
+    )
+    with pytest.raises(client.FirestoreConfigurationError, match="FIRESTORE_TIMEOUT_SECONDS"):
+        if operation == "create":
+            client.create_room()
+        elif operation == "add":
+            client.add_message("room", "signer", "hello")
+        else:
+            client.get_messages("room")
+
+
+@pytest.mark.parametrize("value, expected", [(None, 15.0), ("1", 1.0), ("60", 60.0)])
+def test_timeout_defaults_and_inclusive_bounds(monkeypatch, value, expected) -> None:
+    if value is not None:
+        monkeypatch.setenv("FIRESTORE_TIMEOUT_SECONDS", value)
+    assert client._timeout_seconds_from_environment() == expected
+
+
+@pytest.mark.parametrize("method", ["set", "get", "add", "stream"])
+def test_rpc_timeout_is_wrapped_without_retry(monkeypatch, method) -> None:
+    database = FakeFirestoreDatabase()
+    monkeypatch.setenv("MOCK_EXTERNAL_SERVICES", "0")
+    monkeypatch.setattr(client, "_get_database", lambda: database)
+    room = client.create_room()
+    calls = []
+
+    def timed_out(self, *args, **kwargs):
+        calls.append(kwargs)
+        raise TimeoutError("private provider details")
+
+    owner = FakeDocument if method in {"set", "get"} else FakeMessageCollection
+    monkeypatch.setattr(owner, method, timed_out)
+    with pytest.raises(client.FirestoreProviderError) as error:
+        if method == "set":
+            client.create_room()
+        elif method == "add":
+            client.add_message(room, "signer", "hello")
+        else:
+            client.get_messages(room)
+    assert str(error.value) == "Firestore provider operation failed"
+    assert calls == [{"timeout": 15.0, "retry": None}]

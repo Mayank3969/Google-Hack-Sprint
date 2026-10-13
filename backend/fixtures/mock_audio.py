@@ -19,8 +19,8 @@ def _syncsafe(value: int) -> bytes:
     )
 
 
-def _build_fixture() -> bytes:
-    marker = b"\x00SignBridge\x00SignBridge mock audio"
+def _build_fixture(marker_text: bytes) -> bytes:
+    marker = b"\x00SignBridge\x00" + marker_text
     comment_frame = (
         b"TXXX"
         + len(marker).to_bytes(4, "big")
@@ -37,5 +37,14 @@ def _build_fixture() -> bytes:
     return id3_tag + frame + frame
 
 
-MOCK_MP3_BYTES = _build_fixture()
 MOCK_MP3_MARKER = b"SignBridge mock audio"
+MOCK_MP3_ENGLISH_MARKER = b"SignBridge mock English audio"
+MOCK_MP3_HINDI_MARKER = b"SignBridge mock Hindi audio"
+
+# Keep the legacy fixture for BE-M3 and the existing English-only route. The
+# bilingual path uses distinct deterministic bytes for each labelled segment.
+MOCK_MP3_BYTES = _build_fixture(MOCK_MP3_MARKER)
+MOCK_MP3_BYTES_EN_IN = _build_fixture(MOCK_MP3_ENGLISH_MARKER)
+MOCK_MP3_BYTES_HI_IN = _build_fixture(MOCK_MP3_HINDI_MARKER)
+MOCK_ENGLISH_MP3_BYTES = MOCK_MP3_BYTES_EN_IN
+MOCK_HINDI_MP3_BYTES = MOCK_MP3_BYTES_HI_IN

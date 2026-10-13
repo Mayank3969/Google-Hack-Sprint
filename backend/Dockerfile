@@ -1,21 +1,23 @@
-FROM python:3.11-slim
+FROM python:3.13-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
     PORT=8080 \
-    MOCK_EXTERNAL_SERVICES=0
+    MOCK_EXTERNAL_SERVICES=0 \
+    REQUIRE_HTTPS_PUBLIC_BASE_URL=1
 
 WORKDIR /app
 
-# Install dependencies in a separate layer so source-only changes rebuild quickly.
 COPY requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+RUN python -m pip install --upgrade pip \
+    && python -m pip install -r requirements.txt
 
-# Keep the package rooted at /app so both package-relative imports and the
-# Cloud Run entry point (backend.main:app) resolve consistently.
-COPY . ./backend
+COPY __init__.py main.py cors.py ./
+COPY routes ./routes
+COPY services ./services
+COPY fixtures ./fixtures
 
 EXPOSE 8080
 
-CMD ["sh", "-c", "exec python -m uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8080}"]
+CMD ["sh", "-c", "exec uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}"]
