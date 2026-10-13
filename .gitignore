@@ -9,9 +9,31 @@ ml-service/data/
 ml-service/model/*.npz
 ml-service/model/*.metadata.json
 ml-service/model/*.manifest.json
+ml-service/model/isl/video_evidence/
+ml-service/model/isl/missing_data_evidence/
+ml-service/model/isl/reevaluation_metrics.json
+ml-service/models/person_a_evidence/
+ml-service/models/face_landmarker.task
 ml-service/model/*.json
 *.npy
-ml-service/models/face_landmarker.task
+
+# Large/local fixture inputs and temporary evidence. Keep test code tracked;
+# do not accidentally push downloaded recordings or the 1.8GB working CSV.
+tests/Videos/
+tests/videos/
+tests/video/
+include50_official_mediapipe_with_split.csv
+thinking.docx
+.opencode/
+
+# Local video/evaluation exports regardless of where a developer runs them.
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+*.m4v
+*.npz
 
 # Local credentials/configuration.
 .env

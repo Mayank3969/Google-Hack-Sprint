@@ -1,0 +1,5 @@
+# INTEGRATION_WARNING (B12): pytest success != Person A release evidence.
+# This environment can run Keras tests without installing legacy extraction tools.
+-r requirements-isl.txt
+pytest==8.4.2
+httpx==0.28.1

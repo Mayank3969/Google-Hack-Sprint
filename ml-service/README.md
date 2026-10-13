@@ -1,88 +1,112 @@
-# SignBridge ML service
+# SignBridge ML service — Person B
 
-This service contains the M2–M7 landmark pipeline.
+> **INTEGRATION_WARNING:** the Keras serving implementation is runnable with the
+> committed real weights. The frozen Person A preprocessing contract is integrated;
+> checkpoint selection, threshold calibration and live segmentation still need
+> official evidence. Passing unit tests does not mean release-ready.
 
-## Run locally
+Start with [PERSON_B_HANDOFF.md](PERSON_B_HANDOFF.md) for B0–B13 status, ownership,
+integration instructions and the exact evidence files Person A must supply.
+The versioned request/response contract is [isl-contract.md](isl-contract.md).
 
-From the repository root with the project virtual environment active:
+## Local run
 
-```powershell
-.venv\Scripts\python.exe -m uvicorn service.app:app --app-dir ml-service --host 127.0.0.1 --port 8080
-```
-
-The service requires a trained M4 checkpoint for `/predict`:
-
-```text
-ml-service/model/bigru/bigru_best.pt
-```
-
-If the checkpoint is stored elsewhere, configure it before starting Uvicorn:
+Run commands **from `ml-service`** in your virtual environment:
 
 ```powershell
-$env:SIGNBRIDGE_MODEL_PATH = "C:\path\to\bigru_best.pt"
+python -m pip install -r requirements-isl-dev.txt
+python -m uvicorn service.app:app --host 127.0.0.1 --port 8080
 ```
 
-Check health:
+Endpoints:
+
+| Endpoint | Meaning |
+|---|---|
+| `GET /health` | Cheap liveness; no TensorFlow import/model load |
+| `GET /v2/readiness` | Loads/checks the selected artifact; separately reports `integration_ready: false` |
+| `POST /v2/predict` | One raw landmark segment → candidate/status |
+| `POST /v2/predict/batch` | 1–10 isolated buffers → ordered results; one real model batch call |
+| `POST /predict` | Legacy PyTorch interface; requires its own dependencies and `.pt` checkpoint |
+
+The new Keras image does not bundle the legacy PyTorch runtime/checkpoint.
+The legacy source route remains available for existing full-development setups.
+`requirements.txt` retains that full extraction/legacy setup; use the smaller
+`requirements-isl*.txt` files for this work.
+
+Raw input is `(T,110,3)`, up to 450 raw frames total per capture (30 seconds at
+15 FPS). The **model** always receives `(N,60,660)`. The 60 model timesteps are
+not a reason to discard a raw recording after 60 frames. The reference segmenter
+has a separate conservative 60-frame candidate limit, reported as `overflow`.
+
+## Configuration
+
+| Variable | Default / meaning |
+|---|---|
+| `SIGNBRIDGE_ISL_MODEL_PATH` | `models/best_isl_model_v2.keras` (provisional selection) |
+| `SIGNBRIDGE_ISL_LABEL_PATH` | `models/id_to_label.json` |
+| `SIGNBRIDGE_ISL_MANIFEST_PATH` | `models/model_manifest.json` |
+| `SIGNBRIDGE_ISL_MIN_COVERAGE` | `0.05`, uncalibrated |
+| `SIGNBRIDGE_ISL_MIN_VALID_FRAMES` | `3` hand-visible frames, uncalibrated |
+| `SIGNBRIDGE_ISL_MIN_CONFIDENCE` | `0.50`, uncalibrated |
+| `SIGNBRIDGE_ISL_MIN_MARGIN` | `0.05`, uncalibrated |
+| `SIGNBRIDGE_ALLOWED_ORIGINS` | Empty; comma-separated browser origins when integrating |
+
+Model and label hashes are verified against the manifest. New weights, label
+maps and preprocessing versions must be changed as one reviewed bundle. Restart
+the service after updating artifacts. Load failure returns 503, not fake words.
+
+## Incremental tests
 
 ```powershell
-curl http://127.0.0.1:8080/health
+python -m pytest tests/test_isl_model.py -q
+python -m pytest tests/test_isl_preprocessing.py -q
+python -m pytest tests/test_isl_inference.py tests/test_isl_batch.py -q
+python -m pytest tests/test_sign_segmentation.py tests/test_isl_replay.py -q
+python -m pytest tests/test_isl_evidence.py -q
+python -m pytest tests -q -rs
 ```
 
-Predict from a JSON file containing the `(frames, 110, 3)` landmark contract:
+Tests marked `real_model` load actual committed artifacts and fail if TensorFlow
+or weights are missing. They use generated input to test execution, not sign
+accuracy. Other new tests explicitly identify their synthetic/test-double data.
+Legacy MediaPipe/OpenCV tests can skip when extraction dependencies are absent.
+
+## Artifact comparison and release gate
 
 ```powershell
-curl -X POST http://127.0.0.1:8080/predict `
-  -H "Content-Type: application/json" `
-  --data-binary "@payload.json"
+python -m scripts.evaluate_isl_models --smoke
+python -m scripts.evaluate_isl_models --data validation.npz --provenance validation.json
+python -m scripts.check_isl_release --evidence-dir models/person_a_evidence
 ```
 
-Successful response:
+The first command runs both real artifacts on generated tensors and reports no
+accuracy. The second needs Person A's independent prepared validation data.
+The final command **exits 2 while evidence is missing or mismatched**; this is
+intentional and must not be replaced by a dummy passing fixture.
 
-```json
-{"keywords":["pay"]}
-```
-
-## Build and run the M7 container
-
-The image includes the runtime code, MediaPipe hand model, and the trained M4
-checkpoint. The source tree contains only `model/.gitkeep` as a placeholder;
-place the real checkpoint at `model/bigru/bigru_best.pt` before building:
+## Offline segmentation/replay
 
 ```powershell
-docker build --tag signbridge-ml:local .
-docker run --rm --publish 8080:8080 --env PORT=8080 signbridge-ml:local
+python -m scripts.segment_signs recording.npy
+python -m scripts.evaluate_segmentation recording.npy --annotations annotations.json --predict --evidence-kind annotated_capture
 ```
 
-The Dockerfile fails the build when that checkpoint is missing or empty, so a
-placeholder-only image cannot be mistaken for a deployable model service.
+`recording.npy` is a fixed-rate `(T,110,3)` NumPy array, no pickle. Annotations
+are a list of `{start_frame, end_frame, keyword?}` objects with inclusive frame
+indices. Calibration adapts the motion magnitude threshold; the pause-confirmation
+duration is fixed initially. Static signs and long internal holds remain ambiguous.
+The browser implementation and UI are a later integration task.
 
-The container listens on the Cloud Run `PORT` environment variable, defaulting
-to `8080`, and uses CPU inference by default. Set `SIGNBRIDGE_DEVICE=cuda` only
-on a runtime that actually provides CUDA.
+## Container
 
-## Cloud Run handoff
-
-Deploy this directory as the Cloud Run build context. Configure:
-
-- unauthenticated invocation for the hackathon mobile demo;
-- `PORT` supplied by Cloud Run;
-- `SIGNBRIDGE_DEVICE=cpu`;
-- a trained `model/bigru/bigru_best.pt` included in the image; and
-- a region appropriate for the mobile users.
-
-From `ml-service`, a source deployment can be started after the checkpoint is
-present (replace the service name and region for the target project):
+From `ml-service`:
 
 ```powershell
-gcloud run deploy signbridge-ml `
-  --source . `
-  --region REGION `
-  --allow-unauthenticated `
-  --set-env-vars SIGNBRIDGE_DEVICE=cpu
+docker build --tag signbridge-ml:isl .
+docker run --rm --publish 8080:8080 --env PORT=8080 signbridge-ml:isl
 ```
 
-Cloud Run supplies `PORT`; do not hard-code a different listen port. Verify
-`/health` as the cheap liveness check, then send the same known landmark
-fixture used locally to `/predict`. Prediction returns HTTP 503 if the model
-cannot be loaded, while a missing checkpoint is rejected earlier by the image
-build guard.
+The Dockerfile installs the pinned Keras runtime and smoke-checks both actual
+artifacts during build. It does not claim the Person A release gate has passed.
+Docker/Cloud Run verification must be performed on a host with Docker available.
+Provider/backend integration is documented elsewhere and is not part of this build.

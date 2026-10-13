@@ -14,8 +14,12 @@ data/
 .git/
 .gitignore
 
-# The production M4 checkpoint is required by the Dockerfile. Keep these
-# paths eligible for the build context if broader ignore rules are added.
+# INTEGRATION_WARNING (B11): v2 requires Keras artifacts plus manifests. Person A
+# must update the bundle hashes before changing these artifacts. The old .pt
+# paths remain eligible for optional legacy images, not required by this image.
+!models/
+!models/*.keras
+!models/*.json
 !model/
 !model/bigru/
 !model/bigru/bigru_best.pt

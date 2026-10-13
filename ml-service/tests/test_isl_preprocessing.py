@@ -56,6 +56,20 @@ def test_prepare_model_input_rejects_wrong_shape_and_object_values() -> None:
         prepare_model_input([["not-a-number"] * 330])
 
 
+def test_prepare_segment_accepts_json_null_but_rejects_bool_and_numeric_text() -> None:
+    from service.isl_preprocessing import prepare_segment
+
+    raw = np.ones((4, 110, 3), dtype=np.float32).tolist()
+    raw[0][0][0] = None
+    result = prepare_segment(raw)
+    assert result.features.shape == (60, 660)
+    for invalid in (True, "0.5"):
+        bad = np.ones((4, 110, 3), dtype=object).tolist()
+        bad[0][0][0] = invalid
+        with pytest.raises(ValueError):
+            prepare_segment(bad)
+
+
 def test_golden_fixture_matches_notebook_contract() -> None:
     fixture_path = Path(__file__).parent / "fixtures" / "isl_preprocessing" / "golden_case.json"
     fixture = json.loads(fixture_path.read_text(encoding="utf-8"))

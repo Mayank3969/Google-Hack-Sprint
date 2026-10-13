@@ -1,7 +1,7 @@
+# INTEGRATION_WARNING: full legacy/extraction developer environment. The Keras
+# serving image uses requirements-isl.txt; update/test both when A integrates.
+-r requirements-isl.txt
 mediapipe==0.10.35
 # MediaPipe requires contrib; do not also install opencv-python (same cv2 namespace).
 opencv-contrib-python==5.0.0.93
-numpy==2.3.5
 torch==2.14.1
-fastapi==0.115.14
-uvicorn[standard]==0.35.0

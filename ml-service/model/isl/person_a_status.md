@@ -28,13 +28,15 @@
 - A deterministic missing-data corruption matrix generator is available at
   `scripts/missing_data_experiment.py`.
 
-## Runtime limitation
+## Runtime limitation (historical handoff note)
 
-This Windows development interpreter does not have TensorFlow, Keras,
-MediaPipe, or OpenCV installed. Therefore local runtime model loading, the
-two-model evaluation, and the missing-data accuracy experiment are not claimed
-as passed. Run them in the isolated environment described by
-`requirements-isl.txt` (Colab/Linux with TensorFlow 2.21.0 and Keras 3.13.2).
+The original static-audit run did not have TensorFlow/Keras/MediaPipe/OpenCV in
+its interpreter. Person B subsequently ran an isolated pinned runtime: both
+real Keras archives load and execute, MediaPipe extracts all three supplied
+videos, and the serving adapter is wired to this frozen preprocessing module.
+The official compact68 CSV test reevaluation and missing-data accuracy matrix
+remain pending because the exact compact68 CSV is not present in this workspace;
+the downloaded real-video diagnostic is not a substitute for that official test.
 
 The current historical `evaluation_metrics.json` is preserved as provenance;
 it is not treated as a fresh reproduction of both artifacts.
@@ -49,14 +51,16 @@ code requires both assets explicitly and emits raw `(T, 110, 3)` compact-v1
 frames. The supplied `signbridge_wlasl_12k_colab_v2.ipynb` remains the resumable
 Colab fallback for bulk video-to-landmark extraction.
 
-## Still requiring a TensorFlow runtime
+## Still requiring official evidence
 
-1. Load both models with their custom Keras layers.
-2. Evaluate both on the official CSV test sequences using fixed labels 0–49.
-3. Select the artifact using those reproduced metrics and write the selection
-   into the model manifest.
-4. Run the missing-data robustness matrix and decide whether retraining is
-   justified.
+1. Evaluate both on the official CSV test sequences using fixed labels 0–49.
+2. Select the artifact using validation/reproduced metrics and write the
+   selection into the model manifest.
+3. Run the missing-data robustness matrix on labeled official data and decide
+   whether retraining is justified.
+4. Validate real signer/device and multi-sign segmentation data; the three
+   downloaded fixture clips currently produce 1/3 single-video top-1 and 0/6
+   exact ordered pair sequences, so domain shift remains an open issue.
 
 Serving, HTTP inference, abstention thresholds, segmentation, and browser
 integration are intentionally outside Person A's scope.

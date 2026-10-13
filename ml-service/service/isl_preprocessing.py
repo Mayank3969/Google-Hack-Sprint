@@ -15,11 +15,16 @@ rejected.  Values must also remain finite after conversion to float32.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+import numbers
+from typing import Any
+
 import numpy as np
 import warnings
 
 
 PREPROCESSING_VERSION = "isl-preprocessing-v2"
+MAX_RAW_FRAMES = 450
 TARGET_FRAMES = 60
 POINTS_PER_FRAME = 110
 COORDINATES_PER_POINT = 3
@@ -47,6 +52,43 @@ FEATURE_COLUMNS = tuple(
 )
 assert len(FACE_SOURCE_INDICES) == 68
 assert len(FEATURE_COLUMNS) == RAW_FEATURES
+
+
+class PreprocessingError(ValueError):
+    """A raw segment cannot satisfy the frozen preprocessing contract."""
+
+
+@dataclass(frozen=True)
+class SegmentQuality:
+    """Observation quality calculated before missing values are transformed."""
+
+    input_frames: int
+    valid_frames: int
+    hand_valid_frames: int
+    coordinate_coverage: float
+    left_hand_coverage: float
+    right_hand_coverage: float
+    face_coverage: float
+    has_signal: bool
+
+    def as_dict(self) -> dict[str, int | float | bool]:
+        return {
+            "input_frames": self.input_frames,
+            "valid_frames": self.valid_frames,
+            "hand_valid_frames": self.hand_valid_frames,
+            "coordinate_coverage": self.coordinate_coverage,
+            "left_hand_coverage": self.left_hand_coverage,
+            "right_hand_coverage": self.right_hand_coverage,
+            "face_coverage": self.face_coverage,
+            "has_signal": self.has_signal,
+        }
+
+
+@dataclass(frozen=True)
+class PreparedSegment:
+    features: np.ndarray
+    quality: SegmentQuality
+    preprocessing_version: str = PREPROCESSING_VERSION
 
 
 def _as_float32(raw_sequence: object) -> np.ndarray:
@@ -129,14 +171,107 @@ def prepare_model_input(raw_sequence: object) -> np.ndarray:
     return output
 
 
+def _raw_3d(raw_sequence: Any, observed_mask: Any | None) -> tuple[np.ndarray, np.ndarray]:
+    """Normalize the serving envelope without changing Person A's transform."""
+    def invalid_scalar(value: Any) -> bool:
+        if isinstance(value, (bool, np.bool_)) or isinstance(value, str):
+            return True
+        if isinstance(value, np.ndarray) and value.dtype.kind == "O":
+            return any(invalid_scalar(item) for item in value.flat)
+        if isinstance(value, (list, tuple)):
+            return any(invalid_scalar(item) for item in value)
+        return False
+
+    if invalid_scalar(raw_sequence):
+        raise PreprocessingError("raw_sequence must contain real numeric values or null")
+    try:
+        values = np.asarray(raw_sequence)
+    except (TypeError, ValueError) as exc:
+        raise PreprocessingError("raw_sequence must be a rectangular numeric array") from exc
+    if values.ndim != 3 or tuple(values.shape[1:]) != RAW_SHAPE:
+        raise PreprocessingError("raw_sequence must have shape (T, 110, 3)")
+    if not 1 <= values.shape[0] <= MAX_RAW_FRAMES:
+        raise PreprocessingError(f"raw_sequence must contain 1–{MAX_RAW_FRAMES} frames")
+    if values.dtype.kind == "O":
+        normalized = np.empty(values.shape, dtype=np.float32)
+        for index, item in enumerate(values.flat):
+            if item is None:
+                normalized.flat[index] = np.nan
+            elif isinstance(item, (bool, np.bool_)) or not isinstance(item, numbers.Real):
+                raise PreprocessingError("raw_sequence must contain real numeric values or null")
+            else:
+                normalized.flat[index] = item
+        values = normalized
+    elif values.dtype.kind not in "fiu":
+        raise PreprocessingError("raw_sequence must contain real numeric values")
+    if np.isinf(values).any():
+        raise PreprocessingError("raw_sequence must not contain infinite values")
+    raw = values.astype(np.float32, copy=True)
+    observed = np.isfinite(raw)
+    if observed_mask is not None:
+        mask = np.asarray(observed_mask)
+        if mask.shape != raw.shape or mask.dtype.kind != "b":
+            raise PreprocessingError("observed_mask must be boolean with shape (T, 110, 3)")
+        observed &= mask
+    else:
+        # The extractor's missing modality convention is an all-zero block.
+        # Individual zero coordinates remain valid observations.
+        for start, end in ((0, 21), (21, 42), (42, 110)):
+            absent = np.all(raw[:, start:end] == 0, axis=(1, 2))
+            observed[absent, start:end] = False
+    return raw, observed
+
+
+def _quality(raw: np.ndarray, observed: np.ndarray) -> SegmentQuality:
+    usable_points = observed.all(axis=-1)
+    frame_valid = usable_points.any(axis=1)
+    hand_valid = usable_points[:, :42].any(axis=1)
+
+    def block(start: int, end: int) -> float:
+        values = observed[:, start:end]
+        return float(values.mean()) if values.size else 0.0
+
+    return SegmentQuality(
+        input_frames=int(raw.shape[0]),
+        valid_frames=int(frame_valid.sum()),
+        hand_valid_frames=int(hand_valid.sum()),
+        coordinate_coverage=float(observed.mean()),
+        left_hand_coverage=block(0, 21),
+        right_hand_coverage=block(21, 42),
+        face_coverage=block(42, 110),
+        has_signal=bool(usable_points.any()),
+    )
+
+
+def prepare_segment(raw_sequence: Any, *, observed_mask: Any | None = None) -> PreparedSegment:
+    """Return frozen v2 features plus quality for the serving layer.
+
+    Person A's ``prepare_model_input`` remains the sole source of feature math.
+    This adapter only maps detector-zero/mask absence to NaN for quality-safe
+    serving, then delegates the exact frozen transform.
+    """
+    raw, observed = _raw_3d(raw_sequence, observed_mask)
+    quality = _quality(raw, observed)
+    masked = raw.reshape(raw.shape[0], RAW_FEATURES)
+    masked_observed = observed.reshape(observed.shape[0], RAW_FEATURES)
+    masked[~masked_observed] = np.nan
+    features = prepare_model_input(masked)
+    return PreparedSegment(features=features, quality=quality)
+
+
 __all__ = [
     "OUTPUT_FEATURES",
     "OUTPUT_SHAPE",
     "FACE_SOURCE_INDICES",
     "FEATURE_COLUMNS",
     "PREPROCESSING_VERSION",
+    "PreprocessingError",
+    "PreparedSegment",
     "RAW_FEATURES",
     "RAW_SHAPE",
+    "SegmentQuality",
     "TARGET_FRAMES",
+    "MAX_RAW_FRAMES",
+    "prepare_segment",
     "prepare_model_input",
 ]

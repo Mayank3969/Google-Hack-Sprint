@@ -1,0 +1,24 @@
+{
+  "model_name": "ISL_1DCNN_Transformer_v2",
+  "model_file": "best_isl_model_v2.keras",
+  "model_format": "keras",
+  "input_shape": [60, 660],
+  "raw_landmark_shape": ["T", 110, 3],
+  "output_classes": 50,
+  "label_map": "id_to_label.json",
+  "labels_sha256": "1432541dfb336de8a5146ab05047093b94c42e20d5b393a84f604263d2c4ff31",
+  "artifacts": {
+    "best_isl_model_v2.keras": "dd604c4e577dd3219f8034412d298f1a902cb8194b08c7be09bd7cf6f025fa63",
+    "isl_1dcnn_transformer_v2.keras": "5d3b4b4f76d500f3a9092404adf4700c9b9cd4915f708ce71efd7933cfcb2a37"
+  },
+  "training_runtime": {
+    "tensorflow": "2.21.0",
+    "keras": "3.13.2"
+  },
+  "preprocessing_version": "isl-preprocessing-v2",
+  "preprocessing_status": "frozen_person_a_contract; runtime_video_adapter_validated_separately",
+  "integration_ready": false,
+  "evaluation_note": "evaluation_metrics.json is historical notebook output; real-video and missing-data evidence is recorded separately.",
+  "selection_note": "best_isl_model_v2.keras is selected provisionally; compare both artifacts on independently prepared validation tensors, freeze the choice, then evaluate the selected artifact on test before release.",
+  "integration_warning": "Person A's frozen preprocessing is now wired. Integration readiness remains false until selected-checkpoint, missing-data, real-video, and multi-sign evidence passes. Do not change feature ordering, resampling, normalization, or velocity semantics without retraining or parity evidence."
+}
